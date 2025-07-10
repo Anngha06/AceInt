@@ -3,6 +3,7 @@ import json
 import os
 from datetime import datetime
 from PIL import Image
+from pytz import timezone
 
 # ---------------- SETUP -------------------
 DATA_FILES = {
@@ -48,7 +49,7 @@ def save_json(file, data):
         json.dump(data, f, indent=2)
 
 def log_access(user):
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = datetime.now(timezone("Asia/Kolkata"))
     save_json(DATA_FILES["last_access"], {"user": user, "time": now})
 
 def display_last_access():
@@ -104,6 +105,14 @@ def render_tab(name, fields, editable=True, allow_file=False, checkbox_user_limi
                 st.rerun()
 
 # ------------------ MAIN -------------------
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+if 'username' not in st.session_state:
+    st.session_state.username = ""
+if 'logout' in st.session_state and st.session_state.logout:
+    st.session_state.authenticated = False
+    st.session_state.username = ""
+    st.session_state.logout = False
 st.set_page_config(page_title="AceInt Dashboard", layout="wide")
 if os.path.exists("logo.png"):
     st.sidebar.image(Image.open("logo.png"), width=120)
@@ -146,3 +155,46 @@ if username in USER_DATA and USER_DATA[username]["password"] == password:
 
 else:
     st.warning("Please enter valid credentials to access the dashboard.")
+
+def login():
+    st.title("🔐 AceInt Dashboard Login")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        if (username.lower() in ["anngha", "shruti"] and password == "Q6D") or \
+           (username.lower() == "laxman sir" and password == "222") or \
+           (password == "111"):
+            st.session_state.authenticated = True
+            st.session_state.username = username
+            save_last_access(username)
+            st.experimental_rerun()
+        else:
+            st.error("Invalid credentials!")
+
+if not st.session_state.authenticated:
+    login()
+    st.stop()
+def login():
+    st.title("🔐 AceInt Dashboard Login")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        if (username.lower() in ["anngha", "shruti"] and password == "Q6D") or \
+           (username.lower() == "laxman sir" and password == "222") or \
+           (password == "111"):
+            st.session_state.authenticated = True
+            st.session_state.username = username
+            save_last_access(username)
+            st.experimental_rerun()
+        else:
+            st.error("Invalid credentials!")
+
+if not st.session_state.authenticated:
+    login()
+    st.stop()
+if st.sidebar.button("🚪 Logout"):
+    st.session_state.logout = True
+    st.experimental_rerun()
+
