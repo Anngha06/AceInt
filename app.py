@@ -26,6 +26,9 @@ USER_DATA = {
     "Laxman Sir": {"password": "222", "role": "laxman"},
     # Default role for anyone else who logs in with 1111
 }
+def log_access(user):
+    now = datetime.now(timezone("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M:%S")
+    save_json(DATA_FILES["last_access"], {"user": user, "time": now})
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
