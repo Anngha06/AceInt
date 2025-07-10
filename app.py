@@ -152,22 +152,150 @@ tabs = st.tabs([
     "Messages", "Ideas", "Campaigns", "Interns", "Work Distribution"
 ])
 
+import pandas as pd
+
+# ------------ TAB 0: Ongoing Tasks ------------
 with tabs[0]:
     render_tab("ongoing_tasks", ["task", "due_date", "status"], editable=is_editor)
+
+# ------------ TAB 1: Institutions ------------
 with tabs[1]:
-    render_tab("institutions", ["name", "type", "tier", "state", "officer", "contact", "notes"], editable=is_editor)
+    st.subheader("🏛️ Institutions")
+    db_file = DATA_FILES["institutions"]
+    data = load_json(db_file)
+
+    search = st.text_input("🔍 Search by Institution Name or State")
+    filtered_data = [d for d in data if search.lower() in d.get("name", "").lower() or search.lower() in d.get("state", "").lower()]
+
+    if is_editor:
+        with st.form("form_institutions"):
+            entry = {
+                "name": st.text_input("Institution Name"),
+                "type": st.selectbox("Type", TYPES),
+                "tier": st.selectbox("Tier", TIERS),
+                "state": st.selectbox("State", ALL_STATES),
+                "officer": st.text_input("Officer Name"),
+                "contact": st.text_input("Contact"),
+                "notes": st.text_area("Notes")
+            }
+            if st.form_submit_button("Add"):
+                data.append(entry)
+                save_json(db_file, data)
+                st.success("Added!")
+                st.experimental_rerun()
+
+    st.write("### 📋 Current Institutions")
+    for item in filtered_data:
+        st.write(item)
+
+    if filtered_data:
+        df = pd.DataFrame(filtered_data)
+        st.download_button("📥 Export CSV", df.to_csv(index=False), file_name="institutions.csv", mime="text/csv")
+
+# ------------ TAB 2: EdTech Platforms ------------
 with tabs[2]:
-    render_tab("edtech_platforms", ["name", "contact", "website", "state"], editable=is_editor)
+    st.subheader("💡 EdTech Platforms")
+    db_file = DATA_FILES["edtech_platforms"]
+    data = load_json(db_file)
+
+    search = st.text_input("🔍 Search by Name or State")
+    filtered_data = [d for d in data if search.lower() in d.get("name", "").lower() or search.lower() in d.get("state", "").lower()]
+
+    if is_editor:
+        with st.form("form_edtech"):
+            entry = {
+                "name": st.text_input("Platform Name"),
+                "website": st.text_input("Website URL"),
+                "phone": st.text_input("Phone Number"),
+                "email": st.text_input("Email"),
+                "state": st.selectbox("State", ALL_STATES),
+                "notes": st.text_area("Notes")
+            }
+            if st.form_submit_button("Add"):
+                data.append(entry)
+                save_json(db_file, data)
+                st.success("Added!")
+                st.experimental_rerun()
+
+    st.write("### 📋 Current Platforms")
+    for item in filtered_data:
+        st.write(item)
+
+    if filtered_data:
+        df = pd.DataFrame(filtered_data)
+        st.download_button("📥 Export CSV", df.to_csv(index=False), file_name="edtech_platforms.csv", mime="text/csv")
+
+# ------------ TAB 3: Bugs & Updates ------------
 with tabs[3]:
     render_tab("bugs_updates", ["issue", "priority", "notes"], editable=is_editor, allow_file=True)
+
+# ------------ TAB 4: Laxman Sir Messages Only ------------
 with tabs[4]:
-    render_tab("messages", ["message"], editable=is_laxman)
+    st.subheader("📩 Messages")
+    db_file = DATA_FILES["messages"]
+    data = load_json(db_file)
+
+    if is_laxman:
+        with st.form("add_msg"):
+            message = st.text_area("Enter your message")
+            if st.form_submit_button("Post") and message:
+                data.append({"message": message})
+                save_json(db_file, data)
+                st.success("Message posted.")
+                st.experimental_rerun()
+
+    for i, item in enumerate(data):
+        st.markdown(f"💬 {item['message']}")
+        if is_laxman and st.button("🗑️ Delete", key=f"del_msg_{i}"):
+            data.pop(i)
+            save_json(db_file, data)
+            st.experimental_rerun()
+
+# ------------ TAB 5: Ideas ------------
 with tabs[5]:
     render_tab("ideas", ["idea", "notes"], editable=is_editor)
+
+# ------------ TAB 6: Campaigns ------------
 with tabs[6]:
     render_tab("campaigns", ["platform", "title", "start_date", "duration", "notes"], editable=is_editor)
+
+# ------------ TAB 7: Interns with Resume Upload + CSV ------------
 with tabs[7]:
-    render_tab("interns", ["name", "college", "reason", "role"], editable=is_editor, allow_file=True)
+    st.subheader("🧑‍🎓 Interns")
+    db_file = DATA_FILES["interns"]
+    data = load_json(db_file)
+
+    search = st.text_input("🔍 Search Intern by Name or College")
+    filtered_data = [d for d in data if search.lower() in d.get("name", "").lower() or search.lower() in d.get("college", "").lower()]
+
+    if is_editor:
+        with st.form("form_interns"):
+            entry = {
+                "name": st.text_input("Name"),
+                "college": st.text_input("College"),
+                "reason": st.text_input("Reason"),
+                "role": st.text_input("Role")
+            }
+            resume = st.file_uploader("📎 Upload Resume", type=["pdf", "doc", "docx"])
+            if resume:
+                entry["resume"] = resume.name
+            if st.form_submit_button("Add"):
+                data.append(entry)
+                save_json(db_file, data)
+                st.success("Intern added.")
+                st.experimental_rerun()
+
+    st.write("### 📋 Current Interns")
+    for item in filtered_data:
+        st.write(item)
+        if "resume" in item:
+            st.download_button("📄 Download Resume", item["resume"], file_name=item["resume"])
+
+    if filtered_data:
+        df = pd.DataFrame(filtered_data)
+        st.download_button("📥 Export Interns CSV", df.to_csv(index=False), file_name="interns.csv", mime="text/csv")
+
+# ------------ TAB 8: Work Distribution w/ Role-Specific Logic ------------
 with tabs[8]:
     st.subheader("👩‍💻 Work Distribution")
     db_file = DATA_FILES["work_distribution"]
