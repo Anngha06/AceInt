@@ -58,7 +58,7 @@ def display_last_access():
         st.sidebar.markdown(f"🕒 Last Access: `{data['user']}` at `{data['time']}`")
 
 def render_tab(name, fields, editable=True, allow_file=False, checkbox_user_limit=None):
-    st.subheader(name)
+    
     db_file = DATA_FILES[name.replace(" ", "_").lower()]
     data = load_json(db_file)
 
@@ -91,7 +91,7 @@ def render_tab(name, fields, editable=True, allow_file=False, checkbox_user_limi
                 save_json(db_file, data)
                 st.success("Entry added.")
 
-    st.write("### Current Entries")
+    st.write("###Entries")
     for i, item in enumerate(data):
         st.markdown("---")
         for k, v in item.items():
@@ -115,7 +115,7 @@ st.set_page_config(page_title="AceInt Dashboard", layout="wide")
 if os.path.exists("logo.png"):
     st.sidebar.image(Image.open("logo.png"), width=120)
 
-india_time = datetime.now(timezone("Asia/Kolkata")).strftime("%I:%M:%S %p")
+datetime.now().astimezone(pytz.timezone("Asia/Kolkata")).strftime("%I:%M:%S %p")
 st.markdown(f"<div style='position:fixed; top:10px; right:10px; font-size:20px;'>🕒 {india_time}</div>", unsafe_allow_html=True)
 
 if "authenticated" not in st.session_state:
@@ -160,7 +160,7 @@ with tabs[0]:
 
 # ------------ TAB 1: Institutions ------------
 with tabs[1]:
-    st.subheader("🏛️ Institutions")
+    
     db_file = DATA_FILES["institutions"]
     data = load_json(db_file)
 
@@ -194,7 +194,7 @@ with tabs[1]:
 
 # ------------ TAB 2: EdTech Platforms ------------
 with tabs[2]:
-    st.subheader("💡 EdTech Platforms")
+   
     db_file = DATA_FILES["edtech_platforms"]
     data = load_json(db_file)
 
@@ -231,7 +231,6 @@ with tabs[3]:
 
 # ------------ TAB 4: Laxman Sir Messages Only ------------
 with tabs[4]:
-    st.subheader("📩 Messages")
     db_file = DATA_FILES["messages"]
     data = load_json(db_file)
 
@@ -261,7 +260,7 @@ with tabs[6]:
 
 # ------------ TAB 7: Interns with Resume Upload + CSV ------------
 with tabs[7]:
-    st.subheader("🧑‍🎓 Interns")
+   
     db_file = DATA_FILES["interns"]
     data = load_json(db_file)
 
@@ -297,7 +296,6 @@ with tabs[7]:
 
 # ------------ TAB 8: Work Distribution w/ Role-Specific Logic ------------
 with tabs[8]:
-    st.subheader("👩‍💻 Work Distribution")
     db_file = DATA_FILES["work_distribution"]
     data = load_json(db_file)
 
