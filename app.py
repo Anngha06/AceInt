@@ -24,7 +24,25 @@ USER_DATA = {
     "Anngha": {"password": "Q6D", "role": "editor"},
     "Shruti": {"password": "Q6D", "role": "editor"},
     "Laxman Sir": {"password": "222", "role": "laxman"},
+    # Default role for anyone else who logs in with 1111
 }
+
+# In your login section after successful login:
+if username in USER_DATA and USER_DATA[username]["password"] == password:
+    st.session_state.authenticated = True
+    st.session_state.username = username
+    st.session_state.role = USER_DATA[username]["role"]
+    log_access(username)
+    st.rerun()
+elif password == "1111":  # new user allowed with view-only rights
+    st.session_state.authenticated = True
+    st.session_state.username = username
+    st.session_state.role = "limited"
+    log_access(username)
+    st.rerun()
+else:
+    st.error("Invalid credentials")
+    
 def log_access(user):
     now = datetime.now(timezone("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M:%S")
     with open("last_access.json", "w") as f:
