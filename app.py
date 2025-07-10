@@ -190,6 +190,39 @@ def login():
             st.experimental_rerun()
         else:
             st.error("Invalid credentials!")
+            def render_work_distribution():
+    data = load_data("work_distribution")
+    st.title("👩‍💻 Work Distribution")
+    
+    with st.form("assign_work"):
+        task = st.text_input("Task")
+        assigned_to = st.selectbox("Assign To", ["Anngha", "Shruti"])
+        submitted = st.form_submit_button("Assign")
+        if submitted and task:
+            data.append({
+                "task": task,
+                "assigned_to": assigned_to,
+                "done": False
+            })
+            save_data("work_distribution", data)
+            st.success("Task assigned.")
+
+    st.write("### 📝 Assigned Tasks")
+
+    for i, item in enumerate(data):
+        col1, col2, col3 = st.columns([5, 1, 1])
+        with col1:
+            st.write(f"📌 **{item['task']}** — Assigned to `{item['assigned_to']}`")
+        if st.session_state.username.lower() == item["assigned_to"].lower():
+            with col2:
+                if st.checkbox("Done", value=item["done"], key=f"check_{i}"):
+                    item["done"] = True
+                    save_data("work_distribution", data)
+            with col3:
+                if st.button("🗑️ Delete", key=f"del_{i}"):
+                    data.pop(i)
+                    save_data("work_distribution", data)
+                    st.experimental_rerun()
 
 if not st.session_state.authenticated:
     login()
