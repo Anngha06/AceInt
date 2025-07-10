@@ -25,7 +25,10 @@ USER_DATA = {
     "Shruti": {"password": "Q6D", "role": "editor"},
     "Laxman Sir": {"password": "222", "role": "laxman"},
 }
-
+def log_access(user):
+    now = datetime.now(timezone("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M:%S")
+    with open("last_access.json", "w") as f:
+        json.dump({"user": user, "time": now}, f)
 # Login
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
