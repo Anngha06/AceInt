@@ -26,23 +26,31 @@ USER_DATA = {
     "Laxman Sir": {"password": "222", "role": "laxman"},
     # Default role for anyone else who logs in with 1111
 }
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
 
-# In your login section after successful login:
-if username in USER_DATA and USER_DATA[username]["password"] == password:
-    st.session_state.authenticated = True
-    st.session_state.username = username
-    st.session_state.role = USER_DATA[username]["role"]
-    log_access(username)
-    st.rerun()
-elif password == "1111":  # new user allowed with view-only rights
-    st.session_state.authenticated = True
-    st.session_state.username = username
-    st.session_state.role = "limited"
-    log_access(username)
-    st.rerun()
-else:
-    st.error("Invalid credentials")
-    
+if not st.session_state.authenticated:
+    st.title("🔐 AceInt Dashboard Login")
+    username = st.text_input("Name")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        if username in USER_DATA and USER_DATA[username]["password"] == password:
+            st.session_state.authenticated = True
+            st.session_state.username = username
+            st.session_state.role = USER_DATA[username]["role"]
+            log_access(username)
+            st.rerun()
+        elif password == "1111":
+            st.session_state.authenticated = True
+            st.session_state.username = username
+            st.session_state.role = "limited"
+            log_access(username)
+            st.rerun()
+        else:
+            st.error("Invalid credentials")
+    st.stop()
+
 def log_access(user):
     now = datetime.now(timezone("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M:%S")
     with open("last_access.json", "w") as f:
