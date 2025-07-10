@@ -169,4 +169,47 @@ with tabs[6]:
 with tabs[7]:
     render_tab("interns", ["name", "college", "reason", "role"], editable=is_editor, allow_file=True)
 with tabs[8]:
-    render_tab("work_distribution", ["task", "assign_to", "priority"], editable=is_editor, checkbox_user_limit=username)
+    st.subheader("👩‍💻 Work Distribution")
+    db_file = DATA_FILES["work_distribution"]
+    data = load_json(db_file)
+
+    if is_editor:
+        with st.form("assign_work"):
+            task = st.text_input("Task")
+            assigned_to = st.selectbox("Assign To", ["Anngha", "Shruti"])
+            priority = st.selectbox("Priority (1 = High, 5 = Low)", list(range(1, 6)))
+            submitted = st.form_submit_button("Assign")
+            if submitted and task:
+                data.append({
+                    "task": task,
+                    "assigned_to": assigned_to,
+                    "priority": priority,
+                    "done": False
+                })
+                save_json(db_file, data)
+                st.success("✅ Task assigned.")
+                st.experimental_rerun()
+
+    st.write("### 📝 Assigned Tasks")
+    for i, item in enumerate(data):
+        st.markdown("---")
+        st.write(f"📌 **Task**: {item['task']}")
+        st.write(f"👤 **Assigned To**: `{item['assigned_to']}`")
+        st.write(f"⭐ **Priority**: {item['priority']}")
+
+        if username == item["assigned_to"]:
+            done_state = st.checkbox("✅ Mark as Done", value=item.get("done", False), key=f"done_{i}")
+            if done_state != item.get("done", False):
+                item["done"] = done_state
+                save_json(db_file, data)
+        else:
+            if item.get("done"):
+                st.success("✅ Done")
+            else:
+                st.info("❗ Pending")
+
+        if username == item["assigned_to"]:
+            if st.button("🗑️ Delete", key=f"del_task_{i}"):
+                data.pop(i)
+                save_json(db_file, data)
+                st.experimental_rerun()
