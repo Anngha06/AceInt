@@ -1,146 +1,162 @@
+# app.py
 import streamlit as st
-import json
 import os
+import json
 from datetime import datetime
 
-# Constants
-DATA_FOLDER = "data"
+# ---------- CONFIG ----------
 LOGO_PATH = "logo.png"
+EDITOR_CREDENTIALS = ["Anngha", "Shruti"]
+EDITOR_PASSWORD = "Q6D"
+LAXMAN_NAME = "Laxman Sir"
+LAXMAN_PASSWORD = "222"
 
-# Ensure data folder exists
-os.makedirs(DATA_FOLDER, exist_ok=True)
-
-# Utility functions
+# ---------- UTILITIES ----------
 def load_json(file):
-    filepath = os.path.join(DATA_FOLDER, file)
-    if not os.path.exists(filepath):
-        return []
-    with open(filepath, "r") as f:
-        return json.load(f)
+    if os.path.exists(file):
+        with open(file, "r") as f:
+            return json.load(f)
+    return []
 
 def save_json(file, data):
-    with open(os.path.join(DATA_FOLDER, file), "w") as f:
-        json.dump(data, f, indent=4)
+    with open(file, "w") as f:
+        json.dump(data, f, indent=2)
 
-# Login function
+def record_last_access(user):
+    save_json("last_access.json", {"user": user, "time": str(datetime.now())})
+
+def get_last_access():
+    data = load_json("last_access.json")
+    return data.get("user", "N/A"), data.get("time", "N/A")
+
+# ---------- LOGIN ----------
 def login():
-    st.image(LOGO_PATH, width=120)
-    st.title("🔐 Login")
-    name = st.text_input("Enter your name")
-    password = st.text_input("Enter password", type="password")
+    st.image(LOGO_PATH, width=100)
+    st.title("🔐 AceInt Dashboard Login")
+    user = st.text_input("Enter your name")
+    pw = st.text_input("Enter password", type="password")
+
     if st.button("Login"):
-        if (name in ["Anngha", "Shruti"] and password == "Q6D"):
-            st.session_state.user = name
+        if user in EDITOR_CREDENTIALS and pw == EDITOR_PASSWORD:
+            st.session_state.user = user
             st.session_state.role = "editor"
-        elif name == "Laxman Sir" and password == "222":
-            st.session_state.user = name
+        elif user == LAXMAN_NAME and pw == LAXMAN_PASSWORD:
+            st.session_state.user = user
             st.session_state.role = "laxman"
-        elif password == "111":
-            st.session_state.user = name
+        elif pw == EDITOR_PASSWORD:
+            st.session_state.user = user
             st.session_state.role = "viewer"
         else:
-            st.error("Access denied.")
-            return
-        save_json("last_access.json", {"user": name, "time": str(datetime.now())})
-        st.success("Login successful! Please refresh.")
+            st.error("Access Denied")
+            st.stop()
+
+        record_last_access(user)
+        st.success("Login successful! Reloading...")
+        st.experimental_set_query_params(refresh="1")
         st.stop()
 
-# Check for login
 if "user" not in st.session_state:
     login()
     st.stop()
 
-# Sidebar info
-last_user = load_json("last_access.json")
-if not isinstance(last_user, dict):
-    last_user = {"user": "N/A", "time": "N/A"}
-
-st.sidebar.image(LOGO_PATH, width=100)
-st.sidebar.title("AceInt Dashboard")
-st.sidebar.markdown(f"**Logged in as:** {st.session_state.user}")
-st.sidebar.markdown(f"**Last Access:** {last_user.get('user')} at {last_user.get('time')}")
-
-# Role-based access
+# ---------- ROLE FLAGS ----------
 is_editor = st.session_state.role == "editor"
 is_laxman = st.session_state.role == "laxman"
+user = st.session_state.user
 
-# Tabs
+# ---------- SIDEBAR ----------
+last_user, last_time = get_last_access()
+st.sidebar.image(LOGO_PATH, width=80)
+st.sidebar.markdown(f"**👤 Logged in as:** {user}")
+st.sidebar.markdown(f"**🕒 Last Access:** {last_user} at {last_time}")
+
+# ---------- MAIN TABS ----------
 tabs = st.tabs([
-    "Ongoing", "Institutions", "EdTech", "Interns", "Bugs", "Ideas", "Campaigns", "Messages"
+    "📋 Ongoing Tasks", "🏫 Institutions", "🎓 EdTech Platforms", "🐞 Bugs & Updates",
+    "💬 Laxman Messages", "💡 Ideas", "📣 Campaigns", "👩‍💻 Interns", "✅ Work Distribution"
 ])
 
-# Generic CRUD tab handler
-def render_json_tab(tabname, fields, editable=False):
-    data = load_json(f"{tabname}.json")
+def render_tab(title, file, fields, allow_edit=True, file_upload=False, checkbox_logic=None):
+    data = load_json(file)
 
-    if editable:
-        with st.form(f"add_{tabname}"):
-            inputs = [st.text_input(f"{field}") for field in fields]
-            if st.form_submit_button(f"Add to {tabname}"):
-                data.append(dict(zip(fields, inputs)))
-                save_json(f"{tabname}.json", data)
-                st.success("Added successfully.")
+    if (is_editor or (is_laxman and title == "💬 Laxman Messages")) and allow_edit:
+        with st.form(f"add_{title}"):
+            inputs = [st.text_input(f, key=f"{file}_{f}") for f in fields]
+            uploaded_file = st.file_uploader("Upload file (optional)", key=file) if file_upload else None
+            if st.form_submit_button("Add"):
+                item = dict(zip(fields, inputs))
+                if uploaded_file:
+                    item["file"] = uploaded_file.name
+                data.append(item)
+                save_json(file, data)
                 st.experimental_rerun()
 
-    for idx, item in enumerate(data):
-        with st.expander(f"{item.get(fields[0], f'Row {idx+1}')}"):
-            if editable:
-                with st.form(f"edit_{tabname}_{idx}"):
-                    new_inputs = [st.text_input(f, value=item.get(f, "")) for f in fields]
-                    col1, col2 = st.columns(2)
-                    if col1.form_submit_button("Update"):
-                        data[idx] = dict(zip(fields, new_inputs))
-                        save_json(f"{tabname}.json", data)
-                        st.success("Updated!")
-                        st.experimental_rerun()
-                    if col2.form_submit_button("Delete"):
-                        data.pop(idx)
-                        save_json(f"{tabname}.json", data)
-                        st.success("Deleted!")
-                        st.experimental_rerun()
-            else:
-                for field in fields:
-                    st.write(f"**{field}**: {item.get(field, '')}")
+    for i, entry in enumerate(data):
+        with st.expander(f"{entry.get(fields[0], 'Item')}"):
+            for f in fields:
+                st.write(f"**{f}:** {entry.get(f, '')}")
+            if file_upload and entry.get("file"):
+                st.write(f"📎 Attached: {entry['file']}")
+            if checkbox_logic:
+                checkbox_logic(data, i, entry)
+            if is_editor or (is_laxman and title == "💬 Laxman Messages"):
+                col1, col2 = st.columns(2)
+                if col1.button("Edit", key=f"edit_{file}_{i}"):
+                    with st.form(f"editform_{file}_{i}"):
+                        edits = [st.text_input(f"Edit {f}", value=entry.get(f, ""), key=f"edit_{file}_{i}_{f}") for f in fields]
+                        if st.form_submit_button("Save"):
+                            data[i] = dict(zip(fields, edits))
+                            save_json(file, data)
+                            st.experimental_rerun()
+                if col2.button("Delete", key=f"del_{file}_{i}"):
+                    data.pop(i)
+                    save_json(file, data)
+                    st.experimental_rerun()
 
-# Tabs rendering
+# ---------- INDIVIDUAL TABS ----------
 with tabs[0]:
-    st.header("🛠️ Ongoing Tasks")
-    render_json_tab("ongoing", ["title", "due", "status"], editable=is_editor)
+    st.header("📋 Ongoing Tasks")
+    render_tab("Ongoing Tasks", "ongoing.json", ["Task", "Due Date", "Status"])
 
 with tabs[1]:
     st.header("🏫 Institutions")
-    render_json_tab("institutions", ["name", "type", "state", "officer", "contact", "notes"], editable=is_editor)
+    render_tab("Institutions", "institutions.json", ["Name", "Type", "State", "TPO Name", "Contact", "Notes"])
 
 with tabs[2]:
-    st.header("🎓 EdTech Partners")
-    render_json_tab("edtech", ["name", "contact", "website", "state"], editable=is_editor)
+    st.header("🎓 EdTech Platforms")
+    render_tab("EdTech", "edtech.json", ["Platform", "Number", "Website", "State"])
 
 with tabs[3]:
-    st.header("🧑‍💻 Interns")
-    render_json_tab("interns", ["name", "college", "reason", "task", "resume_uploaded"], editable=is_editor)
+    st.header("🐞 Bugs & Updates")
+    render_tab("Bugs", "bugs.json", ["Issue", "Priority", "Notes"], file_upload=True)
 
 with tabs[4]:
-    st.header("🐞 Bugs")
-    render_json_tab("bugs", ["issue", "priority", "screenshot"], editable=is_editor)
+    st.header("💬 Laxman Messages")
+    render_tab("Messages", "messages.json", ["Message"])
 
 with tabs[5]:
     st.header("💡 Ideas")
-    render_json_tab("ideas", ["idea"], editable=is_editor)
+    render_tab("Ideas", "ideas.json", ["Idea"])
 
 with tabs[6]:
-    st.header("📢 Campaigns")
-    render_json_tab("campaigns", ["platform", "title", "duration", "start_date", "notes"], editable=is_editor)
+    st.header("📣 Campaigns")
+    render_tab("Campaigns", "campaigns.json", ["Platform", "Title", "Start Date", "Duration", "Notes"])
 
 with tabs[7]:
-    st.header("📩 Messages")
-    data = load_json("messages.json")
-    if is_laxman:
-        with st.form("add_msg"):
-            msg = st.text_area("New Message")
-            if st.form_submit_button("Post"):
-                data.append({"message": msg})
-                save_json("messages.json", data)
-                st.success("Message posted.")
+    st.header("👩‍💻 Interns")
+    render_tab("Interns", "interns.json", ["Name", "College", "Reason", "Task", "Resume Uploaded"])
+
+with tabs[8]:
+    st.header("✅ Work Distribution")
+    def checkbox_control(data, i, entry):
+        if (entry['Assigned To'] == user):
+            if st.checkbox(f"Mark as done", key=f"check_{i}"):
+                data[i]['Done'] = True
+                save_json("work.json", data)
                 st.experimental_rerun()
-    for idx, item in enumerate(data):
-        st.markdown(f"💬 {item['message']}")
+        elif entry.get("Done"):
+            st.success("✅ Completed")
+
+    render_tab("Work Distribution", "work.json", ["Task", "Assigned To"], checkbox_logic=checkbox_control)
+
+# 🎨 Optional: config.toml for theming stored in .streamlit/config.toml
