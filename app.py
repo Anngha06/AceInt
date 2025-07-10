@@ -1,4 +1,3 @@
-
 import streamlit as st
 import json
 import os
@@ -6,6 +5,7 @@ from datetime import datetime
 import pytz
 from pytz import timezone
 from PIL import Image
+import pandas as pd
 
 # ---------------- SETUP -------------------
 DATA_FILES = {
@@ -56,60 +56,7 @@ def log_access(user):
 def display_last_access():
     data = load_json(DATA_FILES["last_access"])
     if data:
-        india_time = datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%I:%M:%S %p")
         st.sidebar.markdown(f"🕒 Last Access: `{data['user']}` at `{data['time']}`")
-
-def render_tab(name, fields, editable=True, allow_file=False, checkbox_user_limit=None):
-    
-    db_file = DATA_FILES[name.replace(" ", "_").lower()]
-    data = load_json(db_file)
-
-    if editable:
-        with st.form(f"form_{name}"):
-            entry = {}
-            for field in fields:
-                if field == "state":
-                    entry[field] = st.selectbox("State", ALL_STATES)
-                elif field == "tier":
-                    entry[field] = st.selectbox("Tier", TIERS)
-                elif field == "type":
-                    entry[field] = st.selectbox("Institution Type", TYPES)
-                elif field == "priority":
-                    entry[field] = st.selectbox("Priority (1 = High, 5 = Low)", list(range(1, 6)))
-                elif field == "notes":
-                    entry[field] = st.text_area(field.title(), height=100)
-                elif field == "assign_to":
-                    entry[field] = st.selectbox("Assign To", ["Anngha", "Shruti"])
-                else:
-                    entry[field] = st.text_input(field.title())
-            if allow_file:
-                uploaded = st.file_uploader("Upload Screenshot or File", type=["png", "jpg", "jpeg", "pdf"])
-                if uploaded:
-                    entry["file"] = uploaded.name
-            if st.form_submit_button("Add"):
-                if name == "work_distribution":
-                    entry["done"] = False
-                data.append(entry)
-                save_json(db_file, data)
-                st.success("Entry added.")
-
-    st.write("###Entries")
-    for i, item in enumerate(data):
-        st.markdown("---")
-        for k, v in item.items():
-            if k == "file":
-                st.download_button("📎 Download File", v, file_name=v)
-            elif k == "done":
-                if checkbox_user_limit == item.get("assign_to"):
-                    done_state = st.checkbox(f"✅ Mark Done: {item.get('task')}", value=v, key=f"{i}_done")
-                    item["done"] = done_state
-            else:
-                st.write(f"**{k.title()}**: {v}")
-        if editable or (checkbox_user_limit == item.get("assign_to")):
-            if st.button("❌ Delete", key=f"{i}_del_{name}"):
-                data.pop(i)
-                save_json(db_file, data)
-                st.rerun()
 
 # ------------------ MAIN -------------------
 st.set_page_config(page_title="AceInt Dashboard", layout="wide")
@@ -117,7 +64,7 @@ st.set_page_config(page_title="AceInt Dashboard", layout="wide")
 if os.path.exists("logo.png"):
     st.sidebar.image(Image.open("logo.png"), width=120)
 
-datetime.now().astimezone(pytz.timezone("Asia/Kolkata")).strftime("%I:%M:%S %p")
+india_time = datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%I:%M:%S %p")
 st.markdown(f"<div style='position:fixed; top:10px; right:10px; font-size:20px;'>🕒 {india_time}</div>", unsafe_allow_html=True)
 
 if "authenticated" not in st.session_state:
@@ -154,15 +101,16 @@ tabs = st.tabs([
     "Messages", "Ideas", "Campaigns", "Interns", "Work Distribution"
 ])
 
-import pandas as pd
-
 # ------------ TAB 0: Ongoing Tasks ------------
 with tabs[0]:
-    render_tab("ongoing_tasks", ["task", "due_date", "status"], editable=is_editor)
+    db_file = DATA_FILES["ongoing_tasks"]
+    data = load_json(db_file)
+    st.write("### 🛠️ Ongoing Tasks")
+    for item in data:
+        st.write(item)
 
 # ------------ TAB 1: Institutions ------------
 with tabs[1]:
-    
     db_file = DATA_FILES["institutions"]
     data = load_json(db_file)
 
@@ -196,40 +144,20 @@ with tabs[1]:
 
 # ------------ TAB 2: EdTech Platforms ------------
 with tabs[2]:
-   
     db_file = DATA_FILES["edtech_platforms"]
     data = load_json(db_file)
 
-    search = st.text_input("🔍 Search by Name or State")
-    filtered_data = [d for d in data if search.lower() in d.get("name", "").lower() or search.lower() in d.get("state", "").lower()]
-
-    if is_editor:
-        with st.form("form_edtech"):
-            entry = {
-                "name": st.text_input("Platform Name"),
-                "website": st.text_input("Website URL"),
-                "phone": st.text_input("Phone Number"),
-                "email": st.text_input("Email"),
-                "state": st.selectbox("State", ALL_STATES),
-                "notes": st.text_area("Notes")
-            }
-            if st.form_submit_button("Add"):
-                data.append(entry)
-                save_json(db_file, data)
-                st.success("Added!")
-                st.rerun()
-
-    st.write("### 📋 Current Platforms")
-    for item in filtered_data:
+    st.write("### 💻 EdTech Platforms")
+    for item in data:
         st.write(item)
-
-    if filtered_data:
-        df = pd.DataFrame(filtered_data)
-        st.download_button("📥 Export CSV", df.to_csv(index=False), file_name="edtech_platforms.csv", mime="text/csv")
 
 # ------------ TAB 3: Bugs & Updates ------------
 with tabs[3]:
-    render_tab("bugs_updates", ["issue", "priority", "notes"], editable=is_editor, allow_file=True)
+    db_file = DATA_FILES["bugs_updates"]
+    data = load_json(db_file)
+    st.write("### 🐞 Bugs & Updates")
+    for item in data:
+        st.write(item)
 
 # ------------ TAB 4: Laxman Sir Messages Only ------------
 with tabs[4]:
@@ -254,49 +182,29 @@ with tabs[4]:
 
 # ------------ TAB 5: Ideas ------------
 with tabs[5]:
-    render_tab("ideas", ["idea", "notes"], editable=is_editor)
+    db_file = DATA_FILES["ideas"]
+    data = load_json(db_file)
+    st.write("### 💡 Ideas")
+    for item in data:
+        st.write(item)
 
 # ------------ TAB 6: Campaigns ------------
 with tabs[6]:
-    render_tab("campaigns", ["platform", "title", "start_date", "duration", "notes"], editable=is_editor)
+    db_file = DATA_FILES["campaigns"]
+    data = load_json(db_file)
+    st.write("### 📣 Campaigns")
+    for item in data:
+        st.write(item)
 
-# ------------ TAB 7: Interns with Resume Upload + CSV ------------
+# ------------ TAB 7: Interns ------------
 with tabs[7]:
-   
     db_file = DATA_FILES["interns"]
     data = load_json(db_file)
-
-    search = st.text_input("🔍 Search Intern by Name or College")
-    filtered_data = [d for d in data if search.lower() in d.get("name", "").lower() or search.lower() in d.get("college", "").lower()]
-
-    if is_editor:
-        with st.form("form_interns"):
-            entry = {
-                "name": st.text_input("Name"),
-                "college": st.text_input("College"),
-                "reason": st.text_input("Reason"),
-                "role": st.text_input("Role")
-            }
-            resume = st.file_uploader("📎 Upload Resume", type=["pdf", "doc", "docx"])
-            if resume:
-                entry["resume"] = resume.name
-            if st.form_submit_button("Add"):
-                data.append(entry)
-                save_json(db_file, data)
-                st.success("Intern added.")
-                st.rerun()
-
-    st.write("### 📋 Current Interns")
-    for item in filtered_data:
+    st.write("### 👩‍💻 Interns")
+    for item in data:
         st.write(item)
-        if "resume" in item:
-            st.download_button("📄 Download Resume", item["resume"], file_name=item["resume"])
 
-    if filtered_data:
-        df = pd.DataFrame(filtered_data)
-        st.download_button("📥 Export Interns CSV", df.to_csv(index=False), file_name="interns.csv", mime="text/csv")
-
-# ------------ TAB 8: Work Distribution w/ Role-Specific Logic ------------
+# ------------ TAB 8: Work Distribution with Role Logic ------------
 with tabs[8]:
     db_file = DATA_FILES["work_distribution"]
     data = load_json(db_file)
@@ -306,8 +214,7 @@ with tabs[8]:
             task = st.text_input("Task")
             assigned_to = st.selectbox("Assign To", ["Anngha", "Shruti"])
             priority = st.selectbox("Priority (1 = High, 5 = Low)", list(range(1, 6)))
-            submitted = st.form_submit_button("Assign")
-            if submitted and task:
+            if st.form_submit_button("Assign") and task:
                 data.append({
                     "task": task,
                     "assigned_to": assigned_to,
@@ -330,6 +237,7 @@ with tabs[8]:
             if done_state != item.get("done", False):
                 item["done"] = done_state
                 save_json(db_file, data)
+
         else:
             if item.get("done"):
                 st.success("✅ Done")
