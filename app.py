@@ -1,9 +1,10 @@
+
 import streamlit as st
 import json
 import os
 from datetime import datetime
-from PIL import Image
 from pytz import timezone
+from PIL import Image
 
 # ---------------- SETUP -------------------
 DATA_FILES = {
@@ -23,7 +24,6 @@ USER_DATA = {
     "Anngha": {"password": "Q6D", "role": "editor"},
     "Shruti": {"password": "Q6D", "role": "editor"},
     "Laxman Sir": {"password": "222", "role": "laxman"},
-    "Your Name": {"password": "111", "role": "viewer"}
 }
 
 ALL_STATES = [
@@ -49,13 +49,13 @@ def save_json(file, data):
         json.dump(data, f, indent=2)
 
 def log_access(user):
-    now = datetime.now(timezone("Asia/Kolkata"))
+    now = datetime.now(timezone("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M:%S")
     save_json(DATA_FILES["last_access"], {"user": user, "time": now})
 
 def display_last_access():
     data = load_json(DATA_FILES["last_access"])
     if data:
-        st.sidebar.info(f"🕒 Last Access: {data['user']} at {data['time']}")
+        st.sidebar.markdown(f"🕒 Last Access: `{data['user']}` at `{data['time']}`")
 
 def render_tab(name, fields, editable=True, allow_file=False, checkbox_user_limit=None):
     st.subheader(name)
@@ -84,7 +84,12 @@ def render_tab(name, fields, editable=True, allow_file=False, checkbox_user_limi
                 uploaded = st.file_uploader("Upload Screenshot or File", type=["png", "jpg", "jpeg", "pdf"])
                 if uploaded:
                     entry["file"] = uploaded.name
-            st.form_submit_button("Add", on_click=lambda: (data.append(entry), save_json(db_file, data)))
+            if st.form_submit_button("Add"):
+                if name == "work_distribution":
+                    entry["done"] = False
+                data.append(entry)
+                save_json(db_file, data)
+                st.success("Entry added.")
 
     st.write("### Current Entries")
     for i, item in enumerate(data):
@@ -105,129 +110,63 @@ def render_tab(name, fields, editable=True, allow_file=False, checkbox_user_limi
                 st.rerun()
 
 # ------------------ MAIN -------------------
-if 'authenticated' not in st.session_state:
-    st.session_state.authenticated = False
-if 'username' not in st.session_state:
-    st.session_state.username = ""
-if 'logout' in st.session_state and st.session_state.logout:
-    st.session_state.authenticated = False
-    st.session_state.username = ""
-    st.session_state.logout = False
 st.set_page_config(page_title="AceInt Dashboard", layout="wide")
+
 if os.path.exists("logo.png"):
     st.sidebar.image(Image.open("logo.png"), width=120)
 
-st.title("🔐 AceInt Dashboard")
-username = st.sidebar.text_input("Enter your name")
-password = st.sidebar.text_input("Enter password", type="password")
+india_time = datetime.now(timezone("Asia/Kolkata")).strftime("%I:%M:%S %p")
+st.markdown(f"<div style='position:fixed; top:10px; right:10px; font-size:20px;'>🕒 {india_time}</div>", unsafe_allow_html=True)
 
-if username in USER_DATA and USER_DATA[username]["password"] == password:
-    role = USER_DATA[username]["role"]
-    is_editor = role == "editor"
-    is_laxman = role == "laxman"
-    log_access(username)
-    display_last_access()
-
-    tab_names = [
-        "Ongoing Tasks", "Institutions", "EdTech Platforms", "Bugs Updates",
-        "Messages", "Ideas", "Campaigns", "Interns", "Work Distribution"
-    ]
-    tabs = st.tabs(tab_names)
-
-    with tabs[0]:
-        render_tab("ongoing_tasks", ["task", "due_date", "status"], editable=is_editor)
-    with tabs[1]:
-        render_tab("institutions", ["name", "type", "tier", "state", "officer", "contact", "notes"], editable=is_editor)
-    with tabs[2]:
-        render_tab("edtech_platforms", ["name", "contact", "website", "state"], editable=is_editor)
-    with tabs[3]:
-        render_tab("bugs_updates", ["issue", "priority", "notes"], editable=is_editor, allow_file=True)
-    with tabs[4]:
-        render_tab("messages", ["message"], editable=is_laxman)
-    with tabs[5]:
-        render_tab("ideas", ["idea", "notes"], editable=is_editor)
-    with tabs[6]:
-        render_tab("campaigns", ["platform", "title", "start_date", "duration", "notes"], editable=is_editor)
-    with tabs[7]:
-        render_tab("interns", ["name", "college", "reason", "role"], editable=is_editor, allow_file=True)
-    with tabs[8]:
-        render_tab("work_distribution", ["task", "assign_to", "priority"], editable=is_editor, checkbox_user_limit=username)
-
-else:
-    st.warning("Please enter valid credentials to access the dashboard.")
-
-def login():
-    st.title("🔐 AceInt Dashboard Login")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-
-    if st.button("Login"):
-        if (username.lower() in ["anngha", "shruti"] and password == "Q6D") or \
-           (username.lower() == "laxman sir" and password == "222") or \
-           (password == "111"):
-            st.session_state.authenticated = True
-            st.session_state.username = username
-            save_last_access(username)
-            st.experimental_rerun()
-        else:
-            st.error("Invalid credentials!")
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
 
 if not st.session_state.authenticated:
-    login()
-    st.stop()
-def login():
     st.title("🔐 AceInt Dashboard Login")
-    username = st.text_input("Username")
+    username = st.text_input("Name")
     password = st.text_input("Password", type="password")
-
     if st.button("Login"):
-        if (username.lower() in ["anngha", "shruti"] and password == "Q6D") or \
-           (username.lower() == "laxman sir" and password == "222") or \
-           (password == "111"):
+        if username in USER_DATA and USER_DATA[username]["password"] == password:
             st.session_state.authenticated = True
             st.session_state.username = username
-            save_last_access(username)
-            st.experimental_rerun()
+            log_access(username)
+            st.rerun()
         else:
-            st.error("Invalid credentials!")
-            def render_work_distribution():
-    data = load_data("work_distribution")
-    st.title("👩‍💻 Work Distribution")
-    
-    with st.form("assign_work"):
-        task = st.text_input("Task")
-        assigned_to = st.selectbox("Assign To", ["Anngha", "Shruti"])
-        submitted = st.form_submit_button("Assign")
-        if submitted and task:
-            data.append({
-                "task": task,
-                "assigned_to": assigned_to,
-                "done": False
-            })
-            save_data("work_distribution", data)
-            st.success("Task assigned.")
-
-    st.write("### 📝 Assigned Tasks")
-
-    for i, item in enumerate(data):
-        col1, col2, col3 = st.columns([5, 1, 1])
-        with col1:
-            st.write(f"📌 **{item['task']}** — Assigned to `{item['assigned_to']}`")
-        if st.session_state.username.lower() == item["assigned_to"].lower():
-            with col2:
-                if st.checkbox("Done", value=item["done"], key=f"check_{i}"):
-                    item["done"] = True
-                    save_data("work_distribution", data)
-            with col3:
-                if st.button("🗑️ Delete", key=f"del_{i}"):
-                    data.pop(i)
-                    save_data("work_distribution", data)
-                    st.experimental_rerun()
-
-if not st.session_state.authenticated:
-    login()
+            st.error("Invalid credentials")
     st.stop()
+
 if st.sidebar.button("🚪 Logout"):
-    st.session_state.logout = True
-    st.experimental_rerun()
+    st.session_state.authenticated = False
+    st.rerun()
 
+username = st.session_state.username
+role = USER_DATA[username]["role"]
+is_editor = role == "editor"
+is_laxman = role == "laxman"
+
+display_last_access()
+st.title(f"📊 Welcome, {username}")
+
+tabs = st.tabs([
+    "Ongoing Tasks", "Institutions", "EdTech Platforms", "Bugs Updates",
+    "Messages", "Ideas", "Campaigns", "Interns", "Work Distribution"
+])
+
+with tabs[0]:
+    render_tab("ongoing_tasks", ["task", "due_date", "status"], editable=is_editor)
+with tabs[1]:
+    render_tab("institutions", ["name", "type", "tier", "state", "officer", "contact", "notes"], editable=is_editor)
+with tabs[2]:
+    render_tab("edtech_platforms", ["name", "contact", "website", "state"], editable=is_editor)
+with tabs[3]:
+    render_tab("bugs_updates", ["issue", "priority", "notes"], editable=is_editor, allow_file=True)
+with tabs[4]:
+    render_tab("messages", ["message"], editable=is_laxman)
+with tabs[5]:
+    render_tab("ideas", ["idea", "notes"], editable=is_editor)
+with tabs[6]:
+    render_tab("campaigns", ["platform", "title", "start_date", "duration", "notes"], editable=is_editor)
+with tabs[7]:
+    render_tab("interns", ["name", "college", "reason", "role"], editable=is_editor, allow_file=True)
+with tabs[8]:
+    render_tab("work_distribution", ["task", "assign_to", "priority"], editable=is_editor, checkbox_user_limit=username)
