@@ -56,6 +56,7 @@ def log_access(user):
 def display_last_access():
     data = load_json(DATA_FILES["last_access"])
     if data:
+        india_time = datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%I:%M:%S %p")
         st.sidebar.markdown(f"🕒 Last Access: `{data['user']}` at `{data['time']}`")
 
 def render_tab(name, fields, editable=True, allow_file=False, checkbox_user_limit=None):
