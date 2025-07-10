@@ -182,7 +182,7 @@ with tabs[1]:
                 data.append(entry)
                 save_json(db_file, data)
                 st.success("Added!")
-                st.experimental_rerun()
+                st.rerun()
 
     st.write("### 📋 Current Institutions")
     for item in filtered_data:
@@ -215,7 +215,7 @@ with tabs[2]:
                 data.append(entry)
                 save_json(db_file, data)
                 st.success("Added!")
-                st.experimental_rerun()
+                st.rerun()
 
     st.write("### 📋 Current Platforms")
     for item in filtered_data:
@@ -242,14 +242,14 @@ with tabs[4]:
                 data.append({"message": message})
                 save_json(db_file, data)
                 st.success("Message posted.")
-                st.experimental_rerun()
+                st.rerun()
 
     for i, item in enumerate(data):
         st.markdown(f"💬 {item['message']}")
         if is_laxman and st.button("🗑️ Delete", key=f"del_msg_{i}"):
             data.pop(i)
             save_json(db_file, data)
-            st.experimental_rerun()
+            st.rerun()
 
 # ------------ TAB 5: Ideas ------------
 with tabs[5]:
@@ -283,7 +283,7 @@ with tabs[7]:
                 data.append(entry)
                 save_json(db_file, data)
                 st.success("Intern added.")
-                st.experimental_rerun()
+                st.rerun()
 
     st.write("### 📋 Current Interns")
     for item in filtered_data:
@@ -316,7 +316,7 @@ with tabs[8]:
                 })
                 save_json(db_file, data)
                 st.success("✅ Task assigned.")
-                st.experimental_rerun()
+                st.rerun()
 
     st.write("### 📝 Assigned Tasks")
     for i, item in enumerate(data):
@@ -340,4 +340,4 @@ with tabs[8]:
             if st.button("🗑️ Delete", key=f"del_task_{i}"):
                 data.pop(i)
                 save_json(db_file, data)
-                st.experimental_rerun()
+                st.rerun()
