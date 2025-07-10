@@ -1,0 +1,8 @@
+streamlit
+pandas
+requests
+pyairtable
+python-dotenv
+Pillow
+streamlit-authenticator
+streamlit-extras
