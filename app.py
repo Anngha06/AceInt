@@ -1,369 +1,246 @@
+
 import streamlit as st
 import requests
 import pandas as pd
 from datetime import datetime
 import pytz
-import os
 
-# --- Configuration ---
-SHEETDB_API = "https://sheetdb.io/api/v1/t7v2r5fwzk0zt"
-GOOGLE_SHEET_LINK = "https://docs.google.com/spreadsheets/d/1Feq9Tp44cPXFeNtdpMHgjTTwsWP-p7dAgYv4tMhc1k4/edit#gid=0"
+# Constants
+API_ENDPOINT = "https://sheetdb.io/api/v1/t7v2r5fwzk0zt"
+TIMEZONE = "Asia/Kolkata"
+PRIMARY_COLOR = "#2A5C82"
+SECONDARY_COLOR = "#5CB3FF"
 
-# --- User Login ---
-username = st.sidebar.text_input("Enter your username")
-is_laxman = username.lower() == "laxman"
-is_shruti = username.lower() == "shruti"
-is_anngha = username.lower() == "anngha"
-is_editor = False  # all tabs are view only except for special permissions
+# User Roles
+USERS = {
+    "Anngha": {"password": "Q6D", "role": "Editor"},
+    "Shruti": {"password": "Q6D", "role": "Editor"},
+    "Laxman": {"password": "222", "role": "Admin"},
+    "Viewer": {"password": "111", "role": "Viewer"},
+}
 
-# --- Helper functions ---
-def load_sheetdb_json(sheet_name):
-    res = requests.get(f"{SHEETDB_API}/search?sheet={sheet_name}")
-    return res.json() if res.status_code == 200 else []
+# Initialize Session
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+    st.session_state.username = ""
+    st.session_state.role = ""
 
-def save_to_sheetdb(sheet_name, data):
-    requests.delete(f"{SHEETDB_API}?sheet={sheet_name}")
-    requests.post(f"{SHEETDB_API}?sheet={sheet_name}", json={"data": data})
-
-# --- Tabs ---
-tabs = st.tabs([
-    "🛠️ Ongoing Tasks", "🏫 Institutions", "💻 EdTech Platforms",
-    "🐞 Bugs", "💬 Messages", "💡 Ideas",
-    "📣 Campaigns", "👩‍💻 Interns", "✅ Work Distribution"
-])
-
-# ---------------- TAB 0: Ongoing Tasks ------------------
-with tabs[0]:
-    data = load_sheetdb_json("ongoing_tasks")
-    st.write("### 🛠️ Ongoing Tasks")
-
-    if is_laxman:
-        with st.form("add_task"):
-            task_title = st.text_input("🔧 Task Title")
-            description = st.text_area("📋 Task Description")
-            assigned_to = st.selectbox("👤 Assigned To", ["Anngha", "Shruti"])
-            status = st.selectbox("✅ Status", ["Not Started", "In Progress", "Completed"])
-            due_date = st.date_input("📅 Due Date")
-            priority = st.selectbox("⭐ Priority", ["High", "Medium", "Low"])
-
-            if st.form_submit_button("➕ Add Task"):
-                new_task = {
-                    "title": task_title,
-                    "description": description,
-                    "assigned_to": assigned_to,
-                    "status": status,
-                    "due_date": str(due_date),
-                    "priority": priority,
-                    "created_at": datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M:%S")
-                }
-                data.append(new_task)
-                save_to_sheetdb("ongoing_tasks", data)
-                st.success("✅ Task Added")
-                st.rerun()
-
-    st.write("### 📋 Current Ongoing Tasks")
-    for i, item in enumerate(data):
-        st.markdown("---")
-        st.write(f"🔧 **Title**: {item.get('title', '')}")
-        st.write(f"📋 **Description**: {item.get('description', '')}")
-        st.write(f"👤 **Assigned To**: `{item.get('assigned_to', '')}`")
-        st.write(f"✅ **Status**: {item.get('status', '')}")
-        st.write(f"📅 **Due Date**: {item.get('due_date', '')}")
-        st.write(f"⭐ **Priority**: {item.get('priority', '')}")
-        st.write(f"🕒 **Created At**: {item.get('created_at', '')}")
-
-        if username.lower() == item.get("assigned_to", "").lower() and st.button("🗑️ Delete", key=f"del_task_{i}"):
-            data.pop(i)
-            save_to_sheetdb("ongoing_tasks", data)
-            st.rerun()
-# TAB 1 - Institutions
-with tabs[1]:
-    data = load_sheetdb_json("institutions")
-
-    search = st.text_input("🔍 Search by Institution Name or State")
-    filtered = [
-        d for d in data
-        if search.lower() in d.get("name", "").lower()
-        or search.lower() in d.get("state", "").lower()
-    ]
-
-    if is_editor:
-        with st.form("institution_form"):
-            new_entry = {
-                "name": st.text_input("🏛️ Institution Name"),
-                "type": st.selectbox("🏷️ Type", TYPES),
-                "tier": st.selectbox("🎓 Tier", TIERS),
-                "state": st.selectbox("📍 State", ALL_STATES),
-                "officer": st.text_input("👤 Officer Name"),
-                "contact": st.text_input("📞 Contact"),
-                "notes": st.text_area("📝 Notes")
-            }
-
-            if st.form_submit_button("➕ Add Institution"):
-                data.append(new_entry)
-                save_to_sheetdb("institutions", data)
-                st.success("✅ Institution added!")
-                st.rerun()
-
-    st.write("### 🏫 Institution Directory")
-
-    if filtered:
-        for item in filtered:
-            st.markdown("---")
-            st.write(f"🏛️ **{item.get('name', '')}**")
-            st.write(f"🏷️ Type: {item.get('type', '')}")
-            st.write(f"🎓 Tier: {item.get('tier', '')}")
-            st.write(f"📍 State: {item.get('state', '')}")
-            st.write(f"👤 Officer: {item.get('officer', '')}")
-            st.write(f"📞 Contact: {item.get('contact', '')}")
-            st.write(f"📝 Notes: {item.get('notes', '')}")
-
-        df = pd.DataFrame(filtered)
-        st.download_button("📥 Download CSV", df.to_csv(index=False), "institutions.csv")
-    else:
-        st.info("🔍 No matching institutions found.")
-
-
-# TAB 2 - EdTech Platforms
-with tabs[2]:
-    data = load_sheetdb_json("edtech_platforms")
-    st.write("### 💻 EdTech Platforms")
-
-    if is_editor:
-        with st.form("edtech_form"):
-            new_platform = {
-                "name": st.text_input("🏷️ Platform Name"),
-                "website": st.text_input("🌐 Website URL"),
-                "primary_email": st.text_input("📧 Primary Email ID"),
-                "phone": st.text_input("📱 Phone Number"),
-                "alt_emails": st.text_area("📨 Other Email IDs (comma-separated)", placeholder="e.g. help@xyz.com, contact@xyz.com"),
-                "notes": st.text_area("📝 Notes or Remarks")
-            }
-
-            if st.form_submit_button("➕ Add Platform"):
-                # Clean up alt_emails
-                new_platform["alt_emails"] = ", ".join([e.strip() for e in new_platform["alt_emails"].split(",") if e.strip()])
-                
-                # Validation (optional)
-                if not new_platform["name"] or not new_platform["website"]:
-                    st.warning("⚠️ Name and Website are required.")
-                else:
-                    data.append(new_platform)
-                    save_to_sheetdb("edtech_platforms", data)
-                    st.success("✅ Platform Added")
-                    st.rerun()
-
-    st.write("### 📋 Current EdTech Platforms")
-    for i, item in enumerate(data):
-        st.markdown("---")
-        st.write(f"🏷️ **Name:** {item.get('name', '')}")
-        st.write(f"🌐 **Website:** {item.get('website', '')}")
-        st.write(f"📧 **Primary Email:** {item.get('primary_email', '')}")
-        st.write(f"📱 **Phone:** {item.get('phone', '')}")
-        if item.get("alt_emails"):
-            st.write(f"📨 **Other Emails:** {item.get('alt_emails', '')}")
-        if item.get("notes"):
-            st.write(f"📝 **Notes:** {item.get('notes', '')}")
-
-        if is_editor and st.button("🗑️ Delete", key=f"del_edtech_{i}"):
-            data.pop(i)
-            save_to_sheetdb("edtech_platforms", data)
-            st.rerun()
-
-# TAB 3 - Bugs/Updates
-elif selected_tab == tabs[3]:  # 🐞 Bugs & Updates
-    data = load_sheetdb_json("bugs")
-    st.write("### 🐞 Bugs & Updates")
-
-    if is_editor:
-        with st.form("bug_update_form"):
-            entry = {
-                "title": st.text_input("🐛 Bug/Update Title"),
-                "description": st.text_area("📝 Description"),
-                "type": st.selectbox("📌 Type", ["Bug", "Feature Request", "Improvement"]),
-                "status": st.selectbox("✅ Status", ["Open", "In Progress", "Closed"]),
-                "timestamp": datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M:%S")
-            }
-
-            # Screenshot upload
-            screenshot = st.file_uploader("📸 Upload Screenshot (optional)", type=["png", "jpg", "jpeg"])
-            if screenshot:
-                # Convert to base64 string or just note the filename (Streamlit won't persist it unless saved elsewhere)
-                entry["screenshot"] = f"https://example.com/screenshots/{screenshot.name}"  # <-- Replace with real path if you upload elsewhere
-            else:
-                entry["screenshot"] = ""
-
-            if st.form_submit_button("➕ Add Entry"):
-                data.append(entry)
-                save_to_sheetdb("bugs", data)
-                st.success("✅ Entry Logged")
-                st.rerun()
-
-    st.write("---")
-    st.subheader("📋 All Bugs / Updates")
-
-    for i, item in enumerate(data):
-        with st.expander(f"{item['title']} – {item['status']} – {item['type']}"):
-            st.markdown(f"**📝 Description:** {item['description']}")
-            st.markdown(f"**🕒 Timestamp:** {item['timestamp']}")
-
-            # If screenshot is available
-            if item.get("screenshot") and item["screenshot"].startswith("http"):
-                st.image(item["screenshot"], caption="Screenshot", use_column_width=True)
-
-            if is_editor and st.button("🗑️ Delete", key=f"del_bug_{i}"):
-                data.pop(i)
-                save_to_sheetdb("bugs", data)
-                st.rerun()
-
-# TAB 4 - Messages
-with tabs[4]:
-    data = load_sheetdb_json("messages")
-    st.write("### 💬 Messages")
-
-    if is_laxman:
-        with st.form("msg_form"):
-            msg = st.text_area("New Message")
-            if st.form_submit_button("Post") and msg:
-                data.append({"message": msg})
-                save_to_sheetdb("messages", data)
-                st.success("✅ Posted!")
-                st.rerun()
-
-    for i, item in enumerate(data):
-        st.markdown(f"📨 {item['message']}")
-        if is_laxman and st.button("🗑️ Delete", key=f"del_msg_{i}"):
-            data.pop(i)
-            save_to_sheetdb("messages", data)
-            st.rerun()
-
-
-# TAB 5 - Ideas
-with tabs[5]:
-    data = load_sheetdb_json("ideas")
-    st.write("### 💡 Ideas")
-
-    if is_editor:
-        with st.form("idea_form"):
-            entry = {
-                "idea": st.text_input("💡 Idea"),
-                "notes": st.text_area("📝 Notes or Details")
-            }
-            if st.form_submit_button("➕ Add Idea"):
-                if entry["idea"].strip():  # basic validation
-                    data.append(entry)
-                    save_to_sheetdb("ideas", data)
-                    st.success("✅ Idea added!")
-                    st.rerun()
-                else:
-                    st.warning("⚠️ Please enter an idea.")
-
-    st.write("### 📋 Submitted Ideas")
-    for i, item in enumerate(data):
-        st.markdown(f"- **💡 {item.get('idea', '')}** – _{item.get('notes', '')}_")
-        if is_editor and st.button("🗑️ Delete", key=f"del_idea_{i}"):
-            data.pop(i)
-            save_to_sheetdb("ideas", data)
-            st.rerun()
-
-
-
-# TAB 6 - Campaigns
-with tabs[6]:
-    data = load_sheetdb_json("campaigns")
-    st.write("### 📣 Campaigns")
-
-    if is_editor:
-        with st.form("campaign_form"):
-            entry = {
-                "campaign_type": st.selectbox("Type", ["Instagram", "LinkedIn", "Offline", "Email"]),
-                "title": st.text_input("Title"),
-                "platform": st.text_input("Platforms Used (comma-separated)"),
-                "start_date": str(st.date_input("Start Date")),
-                "duration_days": st.number_input("Duration (in days)", min_value=1, step=1),
-                "owner": st.text_input("Owner"),
-                "notes": st.text_area("Notes")
-            }
-
-            if st.form_submit_button("Launch Campaign"):
-                entry["platform"] = entry["platform"]
-                data.append(entry)
-                save_to_sheetdb("campaigns", data)
-                st.success("✅ Campaign Added")
-                st.rerun()
-
-    for i, item in enumerate(data):
-        st.write(f"📌 **{item['campaign_type']}** – **{item['title']}**")
-        st.write(f"🗓 {item['start_date']} | ⏳ {item['duration_days']} days | 👤 {item['owner']}")
-        st.write(f"📝 {item['notes']}")
-        if is_editor and st.button("🗑️ Delete", key=f"del_camp_{i}"):
-            data.pop(i)
-            save_to_sheetdb("campaigns", data)
-            st.rerun()
-
-
-# TAB 7 - Interns
-with tabs[7]:
-    data = load_sheetdb_json("interns")
-    st.write("### 👩‍💻 Interns")
-
-    if is_editor:
-        with st.form("intern_form"):
-            entry = {
-                "name": st.text_input("Name"),
-                "email": st.text_input("Email"),
-                "college": st.text_input("College"),
-                "branch": st.text_input("Branch"),
-                "phone": st.text_input("Phone")
-            }
-
-            if st.form_submit_button("Add Intern"):
-                data.append(entry)
-                save_to_sheetdb("interns", data)
-                st.success("✅ Intern Added")
-                st.rerun()
-
-    for i, item in enumerate(data):
-        st.write(f"👤 {item['name']} | 📧 {item['email']} | 🎓 {item['college']}")
-        if is_editor and st.button("🗑️ Delete", key=f"del_intern_{i}"):
-            data.pop(i)
-            save_to_sheetdb("interns", data)
-            st.rerun()
-
-
-# TAB 8 - Work Distribution
-with tabs[8]:
-    data = load_sheetdb_json("work_distribution")
-    st.write("### ✅ Assigned Tasks")
-
-    if is_editor:
-        with st.form("assign_work"):
-            task = {
-                "task": st.text_input("Task"),
-                "assigned_to": st.selectbox("Assign to", ["Anngha", "Shruti"]),
-                "priority": st.selectbox("Priority", ["1", "2", "3", "4", "5"]),
-                "done": False
-            }
-            if st.form_submit_button("Assign"):
-                data.append(task)
-                save_to_sheetdb("work_distribution", data)
-                st.success("✅ Task Assigned")
-                st.rerun()
-
-    for i, item in enumerate(data):
-        st.write(f"📌 {item['task']} → {item['assigned_to']} | ⭐ {item['priority']}")
-        if username == item["assigned_to"]:
-            done = st.checkbox("✅ Done?", value=item.get("done", False), key=f"chk_{i}")
-            if done != item.get("done", False):
-                item["done"] = done
-                save_to_sheetdb("work_distribution", data)
-
-            if st.button("🗑️ Delete", key=f"del_task_{i}"):
-                data.pop(i)
-                save_to_sheetdb("work_distribution", data)
-                st.rerun()
+def login():
+    st.title("🔐 AceInt Dashboard Login")
+    user = st.text_input("Username")
+    pwd = st.text_input("Password", type="password")
+    if st.button("Login"):
+        if user in USERS and USERS[user]["password"] == pwd:
+            st.session_state.authenticated = True
+            st.session_state.username = user
+            st.session_state.role = USERS[user]["role"]
+            st.success(f"Welcome, {user}!")
+            st.experimental_rerun()
         else:
-            st.info("⏳ Pending" if not item.get("done") else "✅ Done")
+            st.error("Invalid credentials")
 
+def logout():
+    st.session_state.authenticated = False
+    st.session_state.username = ""
+    st.session_state.role = ""
+    st.experimental_rerun()
 
+@st.cache_data
+def load_data(sheet):
+    try:
+        r = requests.get(f"{API_ENDPOINT}/search?sheet={sheet}")
+        return pd.DataFrame(r.json())
+    except:
+        return pd.DataFrame()
+
+def save_data(sheet, data):
+    data["sheet"] = sheet
+    return requests.post(API_ENDPOINT, json={"data": [data]})
+
+def render_task_tab():
+    st.subheader("📌 Ongoing Tasks")
+    data = load_data("ongoing_tasks")
+    if st.session_state.role in ["Editor", "Admin"]:
+        with st.form("Add Task"):
+            title = st.text_input("Title")
+            desc = st.text_area("Description")
+            assignee = st.text_input("Assignee")
+            status = st.selectbox("Status", ["To Do", "In Progress", "Done"])
+            due = st.date_input("Due Date")
+            priority = st.selectbox("Priority", ["High", "Medium", "Low"])
+            if st.form_submit_button("Add Task"):
+                timestamp = datetime.now(pytz.timezone(TIMEZONE)).strftime("%Y-%m-%d %H:%M:%S")
+                save_data("ongoing_tasks", {
+                    "title": title, "desc": desc, "assignee": assignee,
+                    "status": status, "due": str(due),
+                    "priority": priority, "timestamp": timestamp
+                })
+                st.success("Task added.")
+    if not data.empty:
+        st.dataframe(data)
+
+def render_institutions():
+    st.subheader("🏫 Institutions")
+    data = load_data("institutions")
+    if st.session_state.role in ["Editor", "Admin"]:
+        with st.form("Add Institution"):
+            name = st.text_input("Name")
+            type_ = st.text_input("Type")
+            tier = st.text_input("Tier")
+            state = st.text_input("State")
+            officer = st.text_input("Officer Name")
+            contact = st.text_input("Contact Info")
+            notes = st.text_area("Notes")
+            if st.form_submit_button("Add Institution"):
+                save_data("institutions", {
+                    "name": name, "type": type_, "tier": tier,
+                    "state": state, "officer": officer,
+                    "contact": contact, "notes": notes
+                })
+                st.success("Institution added.")
+    if not data.empty:
+        st.download_button("📁 Export CSV", data.to_csv(index=False), "institutions.csv")
+        st.dataframe(data)
+
+def render_edtech():
+    st.subheader("💻 EdTech Platforms")
+    data = load_data("edtech_platforms")
+    if not data.empty:
+        st.dataframe(data)
+
+def render_bugs_updates():
+    st.subheader("🐞 Bugs & Updates")
+    data = load_data("bugs")
+    if st.session_state.role in ["Editor", "Admin"]:
+        with st.form("Log Bug/Update"):
+            title = st.text_input("Title")
+            bug_type = st.selectbox("Type", ["Bug", "Feature", "Improvement"])
+            status = st.selectbox("Status", ["Open", "In Progress", "Closed"])
+            desc = st.text_area("Description")
+            if st.form_submit_button("Submit"):
+                timestamp = datetime.now(pytz.timezone(TIMEZONE)).strftime("%Y-%m-%d %H:%M:%S")
+                save_data("bugs", {
+                    "title": title, "type": bug_type,
+                    "status": status, "desc": desc,
+                    "timestamp": timestamp
+                })
+                st.success("Entry submitted.")
+    if not data.empty:
+        st.dataframe(data)
+
+def render_messages():
+    st.subheader("📢 Internal Messages")
+    data = load_data("messages")
+    if st.session_state.username == "Laxman":
+        with st.form("Post Message"):
+            msg = st.text_area("Message")
+            prio = st.selectbox("Priority", ["Low", "Medium", "High"])
+            if st.form_submit_button("Post"):
+                timestamp = datetime.now(pytz.timezone(TIMEZONE)).strftime("%Y-%m-%d %H:%M:%S")
+                save_data("messages", {"message": msg, "priority": prio, "timestamp": timestamp})
+                st.success("Message posted.")
+    if not data.empty:
+        st.dataframe(data)
+
+def render_ideas():
+    st.subheader("💡 Ideas")
+    data = load_data("ideas")
+    if not data.empty:
+        for _, row in data.iterrows():
+            with st.expander(f"{row.get('type', 'Idea')}: {row.get('idea', '')}"):
+                st.write(row.to_dict())
+
+def render_campaigns():
+    st.subheader("📆 Campaigns")
+    data = load_data("campaigns")
+    if not data.empty:
+        st.dataframe(data)
+
+def render_interns():
+    st.subheader("👥 Interns")
+    data = load_data("interns")
+    if not data.empty:
+        st.dataframe(data)
+
+def render_work_distribution():
+    st.subheader("🛠️ Work Distribution")
+    data = load_data("work")
+    if st.session_state.role in ["Editor", "Admin"]:
+        with st.form("Assign Task"):
+            task = st.text_input("Task Name")
+            prio = st.selectbox("Priority", ["High", "Medium", "Low"])
+            assignee = st.text_input("Assignee")
+            status = st.selectbox("Status", ["⏳ Pending", "✅ Done"])
+            if st.form_submit_button("Assign"):
+                save_data("work", {"task": task, "priority": prio, "assignee": assignee, "status": status})
+                st.success("Task assigned.")
+    if not data.empty:
+        st.dataframe(data)
+
+def render_meeting_notes():
+    st.subheader("📝 Meeting Notes")
+    data = load_data("meetings")
+    if st.session_state.role in ["Editor", "Admin"]:
+        with st.form("Add Notes"):
+            date = st.date_input("Date")
+            attendees = st.text_input("Attendees")
+            discussion = st.text_area("Discussion Points")
+            actions = st.text_area("Action Items")
+            if st.form_submit_button("Save"):
+                save_data("meetings", {
+                    "date": str(date), "attendees": attendees,
+                    "discussion": discussion, "actions": actions
+                })
+                st.success("Notes added.")
+    if not data.empty:
+        st.dataframe(data)
+
+def render_library():
+    st.subheader("📚 Resource Library")
+    data = load_data("resources")
+    if not data.empty:
+        for _, row in data.iterrows():
+            st.markdown(f"**{row.get('name', '')}** - [{row.get('link', '')}]({row.get('link', '')})")
+
+def render_help():
+    st.info("""
+    **Welcome to the AceInt Dashboard!**
+    - Use the sidebar to navigate across tabs.
+    - Your access level controls which sections you can edit.
+    - All data is synced with a central database.
+    """)
+
+def main():
+    st.set_page_config(layout="wide", page_title="AceInt Dashboard", page_icon="📊")
+    st.markdown(f"<style>body{{color:{PRIMARY_COLOR};}}</style>", unsafe_allow_html=True)
+    if not st.session_state.authenticated:
+        login()
+    else:
+        st.sidebar.title("AceInt Ops Dashboard")
+        st.sidebar.markdown(f"**User:** {st.session_state.username}")
+        if st.sidebar.button("Logout"):
+            logout()
+
+        tab = st.sidebar.selectbox("Navigate", [
+            "Ongoing Tasks", "Institutions", "EdTech Platforms", "Bugs & Updates",
+            "Messages", "Ideas", "Campaigns", "Interns", "Work Distribution",
+            "Meeting Notes", "Resource Library", "Help"
+        ])
+        st.write("⏱ Last Updated:", datetime.now(pytz.timezone(TIMEZONE)).strftime("%Y-%m-%d %H:%M:%S"))
+
+        if tab == "Ongoing Tasks": render_task_tab()
+        elif tab == "Institutions": render_institutions()
+        elif tab == "EdTech Platforms": render_edtech()
+        elif tab == "Bugs & Updates": render_bugs_updates()
+        elif tab == "Messages": render_messages()
+        elif tab == "Ideas": render_ideas()
+        elif tab == "Campaigns": render_campaigns()
+        elif tab == "Interns": render_interns()
+        elif tab == "Work Distribution": render_work_distribution()
+        elif tab == "Meeting Notes": render_meeting_notes()
+        elif tab == "Resource Library": render_library()
+        elif tab == "Help": render_help()
+
+if __name__ == "__main__":
+    main()
 
