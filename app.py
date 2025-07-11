@@ -1,95 +1,58 @@
-import streamlit as st
-import json
-import os
+port streamlit as st
+import requests
 from datetime import datetime
 import pytz
-from pytz import timezone
 from PIL import Image
 import pandas as pd
 
-# ------------- CONFIGURATION -------------
-DATA_FILES = {
-    "ongoing_tasks": "ongoing_tasks.json",
-    "institutions": "institutions.json",
-    "edtech_platforms": "edtech_platforms.json",
-    "bugs_updates": "bugs_updates.json",
-    "messages": "messages.json",
-    "ideas": "ideas.json",
-    "campaigns": "campaigns.json",
-    "interns": "interns.json",
-    "work_distribution": "work_distribution.json",
-    "last_access": "last_access.json"
+# ---------------- CONFIG ----------------
+SHEETDB_URLS = {
+    "ongoing_tasks": "https://sheetdb.io/api/v1/t7v2r5fwzk0zt?sheet=ongoing_tasks",
+    "institutions": "https://sheetdb.io/api/v1/t7v2r5fwzk0zt?sheet=institutions",
+    "edtech_platforms": "https://sheetdb.io/api/v1/t7v2r5fwzk0zt?sheet=edtech",
+    "bugs_updates": "https://sheetdb.io/api/v1/t7v2r5fwzk0zt?sheet=bugs",
+    "messages": "https://sheetdb.io/api/v1/t7v2r5fwzk0zt?sheet=messages",
+    "ideas": "https://sheetdb.io/api/v1/t7v2r5fwzk0zt?sheet=ideas",
+    "campaigns": "https://sheetdb.io/api/v1/t7v2r5fwzk0zt?sheet=campaigns",
+    "interns": "https://sheetdb.io/api/v1/t7v2r5fwzk0zt?sheet=interns",
+    "work_distribution": "https://sheetdb.io/api/v1/t7v2r5fwzk0zt?sheet=work_distribution",
+    "last_access": "https://sheetdb.io/api/v1/t7v2r5fwzk0zt?sheet=last_access"
 }
+
 USER_DATA = {
     "Anngha": {"password": "Q6D", "role": "editor"},
     "Shruti": {"password": "Q6D", "role": "editor"},
     "Laxman Sir": {"password": "222", "role": "laxman"},
-    # Default role for anyone else who logs in with 1111
 }
-def log_access(user):
-    now = datetime.now(timezone("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M:%S")
-    save_json(DATA_FILES["last_access"], {"user": user, "time": now})
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
 
-if not st.session_state.authenticated:
-    st.title("🔐 AceInt Dashboard Login")
-    username = st.text_input("Name")
-    password = st.text_input("Password", type="password")
+# ---------------- HELPERS ----------------
+def load_sheetdb_json(tab_key):
+    url = SHEETDB_URLS[tab_key]
+    try:
+        res = requests.get(url)
+        if res.status_code == 200:
+            return res.json()
+    except:
+        pass
+    return []
 
-    if st.button("Login"):
-        if username in USER_DATA and USER_DATA[username]["password"] == password:
-            st.session_state.authenticated = True
-            st.session_state.username = username
-            st.session_state.role = USER_DATA[username]["role"]
-            log_access(username)
-            st.rerun()
-        elif password == "1111":
-            st.session_state.authenticated = True
-            st.session_state.username = username
-            st.session_state.role = "limited"
-            log_access(username)
-            st.rerun()
-        else:
-            st.error("Invalid credentials")
-    st.stop()
+def save_to_sheetdb(tab_key, data):
+    url = SHEETDB_URLS[tab_key]
+    try:
+        requests.put(url, json={"data": data})
+        return True
+    except:
+        return False
 
 def log_access(user):
-    now = datetime.now(timezone("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M:%S")
-    with open("last_access.json", "w") as f:
-        json.dump({"user": user, "time": now}, f)
-# Login
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
+    now = datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M:%S")
+    save_to_sheetdb("last_access", [{"user": user, "time": now}])
 
-if not st.session_state.authenticated:
-    st.title("🔐 AceInt Dashboard Login")
-    username = st.text_input("Name")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        if username in USER_DATA and USER_DATA[username]["password"] == password:
-            st.session_state.authenticated = True
-            st.session_state.username = username
-            st.session_state.role = USER_DATA[username]["role"]
-            log_access(username)
-            st.rerun()
-        elif password == "1111":  # Anyone else with this password gets viewer role
-            st.session_state.authenticated = True
-            st.session_state.username = username
-            st.session_state.role = "viewer"
-            log_access(username)
-            st.rerun()
-        else:
-            st.error("Invalid credentials")
-    st.stop()
-
-# Role Setup
-username = st.session_state.username
-role = st.session_state.role
-
-is_editor = role == "editor"
-is_laxman = role == "laxman"
-is_viewer = role == "viewer"
+def display_last_access():
+    data = load_sheetdb_json("last_access")
+    if data:
+        latest = data[-1]
+        st.sidebar.markdown(f"🕒 Last Access: `{latest['user']}` at `{latest['time']}`")
 
 ALL_STATES = [
     "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat",
@@ -101,35 +64,8 @@ ALL_STATES = [
 TIERS = ["Tier 1", "Tier 2", "Tier 3"]
 TYPES = ["Government", "Private"]
 
-# ------------- HELPERS -------------
-def load_json(file):
-    if not os.path.exists(file):
-        with open(file, "w") as f:
-            json.dump([], f)
-    with open(file, "r") as f:
-        return json.load(f)
-
-def save_json(file, data):
-    with open(file, "w") as f:
-        json.dump(data, f, indent=2)
-
-def log_access(user):
-    now = datetime.now(timezone("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M:%S")
-    save_json(DATA_FILES["last_access"], {"user": user, "time": now})
-
-def display_last_access():
-    data = load_json(DATA_FILES["last_access"])
-    if data:
-        st.sidebar.markdown(f"🕒 Last Access: `{data['user']}` at `{data['time']}`")
-
-# ------------- MAIN ----------------
+# ---------------- LOGIN ----------------
 st.set_page_config(page_title="AceInt Dashboard", layout="wide")
-
-if os.path.exists("logo.png"):
-    st.sidebar.image(Image.open("logo.png"), width=120)
-
-india_time = datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%I:%M:%S %p")
-st.markdown(f"<div style='position:fixed; top:10px; right:10px; font-size:20px;'>🕒 {india_time}</div>", unsafe_allow_html=True)
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
@@ -142,6 +78,13 @@ if not st.session_state.authenticated:
         if username in USER_DATA and USER_DATA[username]["password"] == password:
             st.session_state.authenticated = True
             st.session_state.username = username
+            st.session_state.role = USER_DATA[username]["role"]
+            log_access(username)
+            st.rerun()
+        elif password == "1111":
+            st.session_state.authenticated = True
+            st.session_state.username = username
+            st.session_state.role = "viewer"
             log_access(username)
             st.rerun()
         else:
@@ -153,35 +96,39 @@ if st.sidebar.button("🚪 Logout"):
     st.rerun()
 
 username = st.session_state.username
-role = USER_DATA[username]["role"]
+role = st.session_state.role
 is_editor = role == "editor"
 is_laxman = role == "laxman"
+is_viewer = role == "viewer"
+
+if os.path.exists("logo.png"):
+    st.sidebar.image(Image.open("logo.png"), width=120)
+
+india_time = datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%I:%M:%S %p")
+st.markdown(f"<div style='position:fixed; top:10px; right:10px; font-size:20px;'>🕒 {india_time}</div>", unsafe_allow_html=True)
 
 display_last_access()
 st.title(f"📊 Welcome, {username}")
 
-# TABS
-
+# ---------------- TABS ----------------
 tabs = st.tabs([
     "Ongoing Tasks", "Institutions", "EdTech Platforms", "Bugs Updates",
     "Messages", "Ideas", "Campaigns", "Interns", "Work Distribution"
 ])
 
-# TAB 0
+# TAB: Ongoing Tasks
 with tabs[0]:
-    db_file = DATA_FILES["ongoing_tasks"]
-    data = load_json(db_file)
+    data = load_sheetdb_json("ongoing_tasks")
     st.write("### 🛠️ Ongoing Tasks")
 
     if is_editor:
-        with st.form("add_ongoing_task_form"):
+        with st.form("add_task"):
             task_title = st.text_input("🔧 Task Title")
             description = st.text_area("📋 Task Description")
             assigned_to = st.selectbox("👤 Assigned To", ["Anngha", "Shruti"])
             status = st.selectbox("✅ Status", ["Not Started", "In Progress", "Completed"])
             due_date = st.date_input("📅 Due Date")
             priority = st.selectbox("⭐ Priority", ["High", "Medium", "Low"])
-
             if st.form_submit_button("➕ Add Task"):
                 new_task = {
                     "title": task_title,
@@ -193,29 +140,28 @@ with tabs[0]:
                     "created_at": datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M:%S")
                 }
                 data.append(new_task)
-                save_json(db_file, data)
+                save_to_sheetdb("ongoing_tasks", data)
                 st.success("✅ Task Added")
                 st.rerun()
 
     st.write("### 📋 Current Ongoing Tasks")
     for i, item in enumerate(data):
         st.markdown("---")
-        st.write(f"🔧 **Title**: {item['title']}")
-        st.write(f"📋 **Description**: {item['description']}")
-        st.write(f"👤 **Assigned To**: `{item['assigned_to']}`")
-        st.write(f"✅ **Status**: {item['status']}")
-        st.write(f"📅 **Due Date**: {item['due_date']}")
-        st.write(f"⭐ **Priority**: {item['priority']}")
-        st.write(f"🕒 **Created At**: {item['created_at']}")
+        st.write(f"🔧 **Title**: {item.get('title')}")
+        st.write(f"📋 **Description**: {item.get('description')}")
+        st.write(f"👤 **Assigned To**: `{item.get('assigned_to')}`")
+        st.write(f"✅ **Status**: {item.get('status')}")
+        st.write(f"📅 **Due Date**: {item.get('due_date')}")
+        st.write(f"⭐ **Priority**: {item.get('priority')}")
+        st.write(f"🕒 **Created At**: {item.get('created_at')}")
 
-        if is_editor and st.button("🗑️ Delete", key=f"del_ongoing_{i}"):
+        if is_editor and st.button("🗑️ Delete", key=f"del_{i}"):
             data.pop(i)
-            save_json(db_file, data)
+            save_to_sheetdb("ongoing_tasks", data)
             st.rerun()
-# TAB 1
+# TAB 1 - Institutions
 with tabs[1]:
-    db_file = DATA_FILES["institutions"]
-    data = load_json(db_file)
+    data = load_sheetdb_json("institutions")
     search = st.text_input("🔍 Search by Institution Name or State")
     filtered = [d for d in data if search.lower() in d.get("name", "").lower() or search.lower() in d.get("state", "").lower()]
 
@@ -232,7 +178,7 @@ with tabs[1]:
             }
             if st.form_submit_button("Add"):
                 data.append(new_entry)
-                save_json(db_file, data)
+                save_to_sheetdb("institutions", data)
                 st.success("Institution added!")
                 st.rerun()
 
@@ -243,10 +189,10 @@ with tabs[1]:
         df = pd.DataFrame(filtered)
         st.download_button("📥 Download CSV", df.to_csv(index=False), "institutions.csv")
 
-# TAB 2
+
+# TAB 2 - EdTech Platforms
 with tabs[2]:
-    db_file = DATA_FILES["edtech_platforms"]
-    data = load_json(db_file)
+    data = load_sheetdb_json("edtech_platforms")
     st.write("### 💻 EdTech Platforms")
 
     if is_editor:
@@ -261,75 +207,63 @@ with tabs[2]:
             }
 
             if st.form_submit_button("➕ Add Platform"):
-                # Convert additional emails to list
-                alt_emails = [e.strip() for e in new_platform["alt_emails"].split(",") if e.strip()]
-                new_platform["alt_emails"] = alt_emails
+                new_platform["alt_emails"] = ", ".join([e.strip() for e in new_platform["alt_emails"].split(",") if e.strip()])
                 data.append(new_platform)
-                save_json(db_file, data)
+                save_to_sheetdb("edtech_platforms", data)
                 st.success("✅ Platform Added")
                 st.rerun()
 
     st.write("### 📋 Current EdTech Platforms")
     for i, item in enumerate(data):
         st.markdown("---")
-        st.write(f"🏷️ **Name:** {item['name']}")
-        st.write(f"🌐 **Website:** [{item['website']}]({item['website']})")
-        st.write(f"📧 **Primary Email:** {item['primary_email']}")
-        st.write(f"📱 **Phone:** {item['phone']}")
-        if item["alt_emails"]:
-            st.write(f"📨 **Other Emails:** {', '.join(item['alt_emails'])}")
-        if item["notes"]:
-            st.write(f"📝 **Notes:** {item['notes']}")
+        st.write(f"🏷️ **Name:** {item.get('name')}")
+        st.write(f"🌐 **Website:** {item.get('website')}")
+        st.write(f"📧 **Primary Email:** {item.get('primary_email')}")
+        st.write(f"📱 **Phone:** {item.get('phone')}")
+        if item.get("alt_emails"):
+            st.write(f"📨 **Other Emails:** {item.get('alt_emails')}")
+        if item.get("notes"):
+            st.write(f"📝 **Notes:** {item.get('notes')}")
 
         if is_editor and st.button("🗑️ Delete", key=f"del_edtech_{i}"):
             data.pop(i)
-            save_json(db_file, data)
+            save_to_sheetdb("edtech_platforms", data)
             st.rerun()
 
 
-# TAB 3
+# TAB 3 - Bugs/Updates
 with tabs[3]:
-    db_file = DATA_FILES["bugs_updates"]
-    data = load_json(db_file)
+    data = load_sheetdb_json("bugs")
     st.write("### 🐞 Bugs & Updates")
 
     if is_editor:
         with st.form("bug_update_form"):
-            bug_title = st.text_input("🐛 Bug/Update Title")
-            bug_description = st.text_area("📝 Description or Details")
-            update_type = st.selectbox("📌 Type", ["Bug", "Feature Request", "Improvement", "UI Issue", "Other"])
-            status = st.selectbox("✅ Status", ["Open", "In Progress", "Fixed", "Closed"])
+            entry = {
+                "title": st.text_input("🐛 Bug/Update Title"),
+                "description": st.text_area("📝 Description"),
+                "type": st.selectbox("📌 Type", ["Bug", "Feature Request", "Improvement"]),
+                "status": st.selectbox("✅ Status", ["Open", "In Progress", "Closed"]),
+                "timestamp": datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M:%S")
+            }
 
             if st.form_submit_button("➕ Add Entry"):
-                entry = {
-                    "title": bug_title,
-                    "description": bug_description,
-                    "type": update_type,
-                    "status": status,
-                    "timestamp": datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M:%S")
-                }
                 data.append(entry)
-                save_json(db_file, data)
-                st.success("✅ Bug/Update Logged")
+                save_to_sheetdb("bugs", data)
+                st.success("✅ Entry Logged")
                 st.rerun()
 
-    st.write("### 📋 Logged Bugs and Updates")
     for i, item in enumerate(data):
-        st.markdown("---")
-        st.write(f"🔹 **Title:** {item['title']}")
-        st.write(f"📝 **Description:** {item['description']}")
-        st.write(f"📌 **Type:** {item['type']}")
-        st.write(f"✅ **Status:** {item['status']}")
-        st.write(f"🕒 **Logged At:** {item['timestamp']}")
-
+        st.markdown(f"🔹 **{item['title']}** – {item['status']} – _{item['type']}_")
+        st.markdown(f"📝 {item['description']} | 🕒 {item['timestamp']}")
         if is_editor and st.button("🗑️ Delete", key=f"del_bug_{i}"):
             data.pop(i)
-            save_json(db_file, data)
+            save_to_sheetdb("bugs", data)
             st.rerun()
 
-# TAB 4
+
+# TAB 4 - Messages
 with tabs[4]:
-    data = load_json(DATA_FILES["messages"])
+    data = load_sheetdb_json("messages")
     st.write("### 💬 Messages")
 
     if is_laxman:
@@ -337,189 +271,139 @@ with tabs[4]:
             msg = st.text_area("New Message")
             if st.form_submit_button("Post") and msg:
                 data.append({"message": msg})
-                save_json(DATA_FILES["messages"], data)
-                st.success("Posted!")
+                save_to_sheetdb("messages", data)
+                st.success("✅ Posted!")
                 st.rerun()
 
     for i, item in enumerate(data):
         st.markdown(f"📨 {item['message']}")
         if is_laxman and st.button("🗑️ Delete", key=f"del_msg_{i}"):
             data.pop(i)
-            save_json(DATA_FILES["messages"], data)
+            save_to_sheetdb("messages", data)
             st.rerun()
 
-# TAB 5
+
+# TAB 5 - Ideas
 with tabs[5]:
-    data = load_json(DATA_FILES["ideas"])
+    data = load_sheetdb_json("ideas")
     st.write("### 💡 Ideas")
 
-    if is_editor:  # Only Anngha and Shruti
+    if is_editor:
         with st.form("idea_form"):
-            idea = st.text_input("Idea")
-            notes = st.text_area("Notes")
+            entry = {
+                "idea": st.text_input("Idea"),
+                "notes": st.text_area("Notes")
+            }
             if st.form_submit_button("Add Idea"):
-                data.append({"idea": idea, "notes": notes})
-                save_json(DATA_FILES["ideas"], data)
+                data.append(entry)
+                save_to_sheetdb("ideas", data)
                 st.success("💡 Idea added!")
                 st.rerun()
 
     for i, item in enumerate(data):
-        st.markdown(f"- **💡 {item['idea']}**")
-        st.markdown(f"  📝 _{item['notes']}_")
-
-        # Optional: allow delete for editors only
+        st.markdown(f"- **💡 {item['idea']}** – _{item['notes']}_")
         if is_editor and st.button("🗑️ Delete", key=f"del_idea_{i}"):
             data.pop(i)
-            save_json(DATA_FILES["ideas"], data)
+            save_to_sheetdb("ideas", data)
             st.rerun()
-# TAB 6
+
+
+# TAB 6 - Campaigns
 with tabs[6]:
-    data = load_json(DATA_FILES["campaigns"])
+    data = load_sheetdb_json("campaigns")
     st.write("### 📣 Campaigns")
-
-    campaign_types = [
-        "Product Hunt Launch",
-        "Unstop Event",
-        "Instagram Campaign",
-        "LinkedIn Campaign",
-        "College WhatsApp Blast",
-        "On-campus Posters",
-        "Email Marketing",
-        "YouTube Shorts",
-        "Influencer Outreach",
-        "Offline Event Booth",
-        "Giveaway Contest",
-        "Referral Program"
-    ]
-
-    platforms = [
-        "Instagram", "LinkedIn", "Twitter", "YouTube", 
-        "Unstop", "Product Hunt", "College WhatsApp", "Email", "Offline"
-    ]
 
     if is_editor:
         with st.form("campaign_form"):
-            new_campaign = {
-                "campaign_type": st.selectbox("📌 Campaign Type", campaign_types),
-                "title": st.text_input("📝 Campaign Title"),
-                "platform": st.multiselect("🌐 Platforms Used", platforms),
-                "start_date": st.date_input("📅 Start Date"),
-                "duration_days": st.number_input("⏳ Duration (in days)", min_value=1, max_value=90),
-                "budget_estimate": st.text_input("💰 Budget (Optional)"),
-                "owner": st.selectbox("👤 Managed By", ["Anngha", "Shruti", "Laxman Sir"]),
-                "goals": st.text_area("🎯 Campaign Goals (e.g., drive traffic, build brand awareness)"),
-                "notes": st.text_area("🗒️ Additional Notes / Assets / Tracking Links")
+            entry = {
+                "campaign_type": st.selectbox("Type", ["Instagram", "LinkedIn", "Offline", "Email"]),
+                "title": st.text_input("Title"),
+                "platform": st.text_input("Platforms Used (comma-separated)"),
+                "start_date": str(st.date_input("Start Date")),
+                "duration_days": st.number_input("Duration (in days)", min_value=1, step=1),
+                "owner": st.text_input("Owner"),
+                "notes": st.text_area("Notes")
             }
 
-            if st.form_submit_button("🚀 Launch Campaign"):
-                data.append(new_campaign)
-                save_json(DATA_FILES["campaigns"], data)
-                st.success("✅ Campaign Launched!")
+            if st.form_submit_button("Launch Campaign"):
+                entry["platform"] = entry["platform"]
+                data.append(entry)
+                save_to_sheetdb("campaigns", data)
+                st.success("✅ Campaign Added")
                 st.rerun()
 
-    st.write("### 📅 Planned Campaigns")
     for i, item in enumerate(data):
-        st.markdown("---")
-        st.write(f"📌 **Type:** {item['campaign_type']}")
-        st.write(f"📝 **Title:** {item['title']}")
-        st.write(f"🌐 **Platforms:** {', '.join(item['platform'])}")
-        st.write(f"📅 **Start Date:** {item['start_date']}")
-        st.write(f"⏳ **Duration:** {item['duration_days']} days")
-        st.write(f"💰 **Budget:** {item.get('budget_estimate', 'N/A')}")
-        st.write(f"👤 **Owner:** {item['owner']}")
-        st.write(f"🎯 **Goals:** {item['goals']}")
-        st.write(f"🗒️ **Notes:** {item['notes']}")
-
+        st.write(f"📌 **{item['campaign_type']}** – **{item['title']}**")
+        st.write(f"🗓 {item['start_date']} | ⏳ {item['duration_days']} days | 👤 {item['owner']}")
+        st.write(f"📝 {item['notes']}")
         if is_editor and st.button("🗑️ Delete", key=f"del_camp_{i}"):
             data.pop(i)
-            save_json(DATA_FILES["campaigns"], data)
+            save_to_sheetdb("campaigns", data)
             st.rerun()
 
 
-# TAB 7
+# TAB 7 - Interns
 with tabs[7]:
-    data = load_json(DATA_FILES["interns"])
+    data = load_sheetdb_json("interns")
     st.write("### 👩‍💻 Interns")
 
     if is_editor:
         with st.form("intern_form"):
-            new_intern = {
-                "name": st.text_input("👤 Full Name"),
-                "email": st.text_input("📧 Email"),
-                "college": st.text_input("🎓 College/University"),
-                "branch": st.text_input("📚 Department / Branch"),
-                "year": st.selectbox("📅 Year of Study", ["1st Year", "2nd Year", "3rd Year", "Final Year", "Graduate"]),
-                "city": st.text_input("🌆 City"),
-                "state": st.selectbox("📍 State", ALL_STATES),
-                "phone": st.text_input("📱 Phone Number"),
-                "internship_type": st.selectbox("💼 Internship Type", ["Technical", "Marketing", "Design", "Operations", "Business", "Campus Ambassador", "Content"]),
-                "skills": st.text_area("🛠️ Skills / Tools Known (comma-separated)"),
-                "project_assigned": st.text_area("📂 Project / Task Assigned"),
-                "mentor": st.text_input("🧑‍🏫 Assigned Mentor"),
-                "start_date": st.date_input("⏳ Start Date"),
-                "duration_weeks": st.number_input("📆 Duration (in weeks)", min_value=1, max_value=52),
-                "status": st.selectbox("🚦 Status", ["Active", "Completed", "Dropped"])
+            entry = {
+                "name": st.text_input("Name"),
+                "email": st.text_input("Email"),
+                "college": st.text_input("College"),
+                "branch": st.text_input("Branch"),
+                "phone": st.text_input("Phone")
             }
 
-            if st.form_submit_button("➕ Add Intern"):
-                data.append(new_intern)
-                save_json(DATA_FILES["interns"], data)
-                st.success("✅ Intern Added!")
+            if st.form_submit_button("Add Intern"):
+                data.append(entry)
+                save_to_sheetdb("interns", data)
+                st.success("✅ Intern Added")
                 st.rerun()
 
-    st.write("### 📋 Current Interns")
     for i, item in enumerate(data):
-        st.markdown("---")
-        st.write(f"👤 **Name:** {item['name']}")
-        st.write(f"📧 **Email:** {item['email']}")
-        st.write(f"🎓 **College:** {item['college']}")
-        st.write(f"📚 **Branch:** {item['branch']}")
-        st.write(f"📅 **Year:** {item['year']}")
-        st.write(f"🌆 **City:** {item['city']}, 📍 {item['state']}")
-        st.write(f"📱 **Phone:** {item['phone']}")
-        st.write(f"💼 **Internship Type:** {item['internship_type']}")
-        st.write(f"🛠️ **Skills:** {item['skills']}")
-        st.write(f"📂 **Project Assigned:** {item['project_assigned']}")
-        st.write(f"🧑‍🏫 **Mentor:** {item['mentor']}")
-        st.write(f"⏳ **Start Date:** {item['start_date']}")
-        st.write(f"📆 **Duration:** {item['duration_weeks']} weeks")
-        st.write(f"🚦 **Status:** {item['status']}")
-
+        st.write(f"👤 {item['name']} | 📧 {item['email']} | 🎓 {item['college']}")
         if is_editor and st.button("🗑️ Delete", key=f"del_intern_{i}"):
             data.pop(i)
-            save_json(DATA_FILES["interns"], data)
+            save_to_sheetdb("interns", data)
             st.rerun()
 
-# TAB 8
+
+# TAB 8 - Work Distribution
 with tabs[8]:
-    data = load_json(DATA_FILES["work_distribution"])
+    data = load_sheetdb_json("work_distribution")
+    st.write("### ✅ Assigned Tasks")
+
     if is_editor:
         with st.form("assign_work"):
-            task = st.text_input("Task")
-            assigned_to = st.selectbox("Assign to", ["Anngha", "Shruti"])
-            priority = st.selectbox("Priority (1 = High, 5 = Low)", list(range(1, 6)))
+            task = {
+                "task": st.text_input("Task"),
+                "assigned_to": st.selectbox("Assign to", ["Anngha", "Shruti"]),
+                "priority": st.selectbox("Priority", ["1", "2", "3", "4", "5"]),
+                "done": False
+            }
             if st.form_submit_button("Assign"):
-                data.append({"task": task, "assigned_to": assigned_to, "priority": priority, "done": False})
-                save_json(DATA_FILES["work_distribution"], data)
+                data.append(task)
+                save_to_sheetdb("work_distribution", data)
                 st.success("✅ Task Assigned")
                 st.rerun()
 
-    st.write("### 📝 Assigned Tasks")
     for i, item in enumerate(data):
-        st.markdown("---")
-        st.write(f"📌 Task: {item['task']}")
-        st.write(f"👤 Assigned To: `{item['assigned_to']}`")
-        st.write(f"⭐ Priority: {item['priority']}")
-
+        st.write(f"📌 {item['task']} → {item['assigned_to']} | ⭐ {item['priority']}")
         if username == item["assigned_to"]:
-            done = st.checkbox("✅ Mark as Done", value=item.get("done", False), key=f"chk_{i}")
+            done = st.checkbox("✅ Done?", value=item.get("done", False), key=f"chk_{i}")
             if done != item.get("done", False):
                 item["done"] = done
-                save_json(DATA_FILES["work_distribution"], data)
+                save_to_sheetdb("work_distribution", data)
 
             if st.button("🗑️ Delete", key=f"del_task_{i}"):
                 data.pop(i)
-                save_json(DATA_FILES["work_distribution"], data)
+                save_to_sheetdb("work_distribution", data)
                 st.rerun()
         else:
-            st.info("❗ Pending" if not item.get("done") else "✅ Done")
+            st.info("⏳ Pending" if not item.get("done") else "✅ Done")
+
+
+
