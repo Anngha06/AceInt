@@ -6,3 +6,4 @@ python-dotenv
 Pillow
 streamlit-authenticator
 streamlit-extras
+pytz
