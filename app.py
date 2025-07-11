@@ -129,6 +129,7 @@ with tabs[0]:
             status = st.selectbox("✅ Status", ["Not Started", "In Progress", "Completed"])
             due_date = st.date_input("📅 Due Date")
             priority = st.selectbox("⭐ Priority", ["High", "Medium", "Low"])
+
             if st.form_submit_button("➕ Add Task"):
                 new_task = {
                     "title": task_title,
@@ -147,47 +148,65 @@ with tabs[0]:
     st.write("### 📋 Current Ongoing Tasks")
     for i, item in enumerate(data):
         st.markdown("---")
-        st.write(f"🔧 **Title**: {item.get('title')}")
-        st.write(f"📋 **Description**: {item.get('description')}")
-        st.write(f"👤 **Assigned To**: `{item.get('assigned_to')}`")
-        st.write(f"✅ **Status**: {item.get('status')}")
-        st.write(f"📅 **Due Date**: {item.get('due_date')}")
-        st.write(f"⭐ **Priority**: {item.get('priority')}")
-        st.write(f"🕒 **Created At**: {item.get('created_at')}")
+        st.write(f"🔧 **Title**: {item.get('title', '')}")
+        st.write(f"📋 **Description**: {item.get('description', '')}")
+        st.write(f"👤 **Assigned To**: `{item.get('assigned_to', '')}`")
+        st.write(f"✅ **Status**: {item.get('status', '')}")
+        st.write(f"📅 **Due Date**: {item.get('due_date', '')}")
+        st.write(f"⭐ **Priority**: {item.get('priority', '')}")
+        st.write(f"🕒 **Created At**: {item.get('created_at', '')}")
 
-        if is_editor and st.button("🗑️ Delete", key=f"del_{i}"):
+        if is_editor and st.button("🗑️ Delete", key=f"del_task_{i}"):
             data.pop(i)
             save_to_sheetdb("ongoing_tasks", data)
             st.rerun()
+
 # TAB 1 - Institutions
 with tabs[1]:
     data = load_sheetdb_json("institutions")
+
     search = st.text_input("🔍 Search by Institution Name or State")
-    filtered = [d for d in data if search.lower() in d.get("name", "").lower() or search.lower() in d.get("state", "").lower()]
+    filtered = [
+        d for d in data
+        if search.lower() in d.get("name", "").lower()
+        or search.lower() in d.get("state", "").lower()
+    ]
 
     if is_editor:
         with st.form("institution_form"):
             new_entry = {
-                "name": st.text_input("Institution Name"),
-                "type": st.selectbox("Type", TYPES),
-                "tier": st.selectbox("Tier", TIERS),
-                "state": st.selectbox("State", ALL_STATES),
-                "officer": st.text_input("Officer Name"),
-                "contact": st.text_input("Contact"),
-                "notes": st.text_area("Notes")
+                "name": st.text_input("🏛️ Institution Name"),
+                "type": st.selectbox("🏷️ Type", TYPES),
+                "tier": st.selectbox("🎓 Tier", TIERS),
+                "state": st.selectbox("📍 State", ALL_STATES),
+                "officer": st.text_input("👤 Officer Name"),
+                "contact": st.text_input("📞 Contact"),
+                "notes": st.text_area("📝 Notes")
             }
-            if st.form_submit_button("Add"):
+
+            if st.form_submit_button("➕ Add Institution"):
                 data.append(new_entry)
                 save_to_sheetdb("institutions", data)
-                st.success("Institution added!")
+                st.success("✅ Institution added!")
                 st.rerun()
 
-    st.write("### 📋 Institutions")
-    for item in filtered:
-        st.write(item)
+    st.write("### 🏫 Institution Directory")
+
     if filtered:
+        for item in filtered:
+            st.markdown("---")
+            st.write(f"🏛️ **{item.get('name', '')}**")
+            st.write(f"🏷️ Type: {item.get('type', '')}")
+            st.write(f"🎓 Tier: {item.get('tier', '')}")
+            st.write(f"📍 State: {item.get('state', '')}")
+            st.write(f"👤 Officer: {item.get('officer', '')}")
+            st.write(f"📞 Contact: {item.get('contact', '')}")
+            st.write(f"📝 Notes: {item.get('notes', '')}")
+
         df = pd.DataFrame(filtered)
         st.download_button("📥 Download CSV", df.to_csv(index=False), "institutions.csv")
+    else:
+        st.info("🔍 No matching institutions found.")
 
 
 # TAB 2 - EdTech Platforms
@@ -207,32 +226,37 @@ with tabs[2]:
             }
 
             if st.form_submit_button("➕ Add Platform"):
+                # Clean up alt_emails
                 new_platform["alt_emails"] = ", ".join([e.strip() for e in new_platform["alt_emails"].split(",") if e.strip()])
-                data.append(new_platform)
-                save_to_sheetdb("edtech_platforms", data)
-                st.success("✅ Platform Added")
-                st.rerun()
+                
+                # Validation (optional)
+                if not new_platform["name"] or not new_platform["website"]:
+                    st.warning("⚠️ Name and Website are required.")
+                else:
+                    data.append(new_platform)
+                    save_to_sheetdb("edtech_platforms", data)
+                    st.success("✅ Platform Added")
+                    st.rerun()
 
     st.write("### 📋 Current EdTech Platforms")
     for i, item in enumerate(data):
         st.markdown("---")
-        st.write(f"🏷️ **Name:** {item.get('name')}")
-        st.write(f"🌐 **Website:** {item.get('website')}")
-        st.write(f"📧 **Primary Email:** {item.get('primary_email')}")
-        st.write(f"📱 **Phone:** {item.get('phone')}")
+        st.write(f"🏷️ **Name:** {item.get('name', '')}")
+        st.write(f"🌐 **Website:** {item.get('website', '')}")
+        st.write(f"📧 **Primary Email:** {item.get('primary_email', '')}")
+        st.write(f"📱 **Phone:** {item.get('phone', '')}")
         if item.get("alt_emails"):
-            st.write(f"📨 **Other Emails:** {item.get('alt_emails')}")
+            st.write(f"📨 **Other Emails:** {item.get('alt_emails', '')}")
         if item.get("notes"):
-            st.write(f"📝 **Notes:** {item.get('notes')}")
+            st.write(f"📝 **Notes:** {item.get('notes', '')}")
 
         if is_editor and st.button("🗑️ Delete", key=f"del_edtech_{i}"):
             data.pop(i)
             save_to_sheetdb("edtech_platforms", data)
             st.rerun()
 
-
 # TAB 3 - Bugs/Updates
-with tabs[3]:
+elif selected_tab == tabs[3]:  # 🐞 Bugs & Updates
     data = load_sheetdb_json("bugs")
     st.write("### 🐞 Bugs & Updates")
 
@@ -246,20 +270,36 @@ with tabs[3]:
                 "timestamp": datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M:%S")
             }
 
+            # Screenshot upload
+            screenshot = st.file_uploader("📸 Upload Screenshot (optional)", type=["png", "jpg", "jpeg"])
+            if screenshot:
+                # Convert to base64 string or just note the filename (Streamlit won't persist it unless saved elsewhere)
+                entry["screenshot"] = f"https://example.com/screenshots/{screenshot.name}"  # <-- Replace with real path if you upload elsewhere
+            else:
+                entry["screenshot"] = ""
+
             if st.form_submit_button("➕ Add Entry"):
                 data.append(entry)
                 save_to_sheetdb("bugs", data)
                 st.success("✅ Entry Logged")
                 st.rerun()
 
-    for i, item in enumerate(data):
-        st.markdown(f"🔹 **{item['title']}** – {item['status']} – _{item['type']}_")
-        st.markdown(f"📝 {item['description']} | 🕒 {item['timestamp']}")
-        if is_editor and st.button("🗑️ Delete", key=f"del_bug_{i}"):
-            data.pop(i)
-            save_to_sheetdb("bugs", data)
-            st.rerun()
+    st.write("---")
+    st.subheader("📋 All Bugs / Updates")
 
+    for i, item in enumerate(data):
+        with st.expander(f"{item['title']} – {item['status']} – {item['type']}"):
+            st.markdown(f"**📝 Description:** {item['description']}")
+            st.markdown(f"**🕒 Timestamp:** {item['timestamp']}")
+
+            # If screenshot is available
+            if item.get("screenshot") and item["screenshot"].startswith("http"):
+                st.image(item["screenshot"], caption="Screenshot", use_column_width=True)
+
+            if is_editor and st.button("🗑️ Delete", key=f"del_bug_{i}"):
+                data.pop(i)
+                save_to_sheetdb("bugs", data)
+                st.rerun()
 
 # TAB 4 - Messages
 with tabs[4]:
@@ -291,21 +331,26 @@ with tabs[5]:
     if is_editor:
         with st.form("idea_form"):
             entry = {
-                "idea": st.text_input("Idea"),
-                "notes": st.text_area("Notes")
+                "idea": st.text_input("💡 Idea"),
+                "notes": st.text_area("📝 Notes or Details")
             }
-            if st.form_submit_button("Add Idea"):
-                data.append(entry)
-                save_to_sheetdb("ideas", data)
-                st.success("💡 Idea added!")
-                st.rerun()
+            if st.form_submit_button("➕ Add Idea"):
+                if entry["idea"].strip():  # basic validation
+                    data.append(entry)
+                    save_to_sheetdb("ideas", data)
+                    st.success("✅ Idea added!")
+                    st.rerun()
+                else:
+                    st.warning("⚠️ Please enter an idea.")
 
+    st.write("### 📋 Submitted Ideas")
     for i, item in enumerate(data):
-        st.markdown(f"- **💡 {item['idea']}** – _{item['notes']}_")
+        st.markdown(f"- **💡 {item.get('idea', '')}** – _{item.get('notes', '')}_")
         if is_editor and st.button("🗑️ Delete", key=f"del_idea_{i}"):
             data.pop(i)
             save_to_sheetdb("ideas", data)
             st.rerun()
+
 
 
 # TAB 6 - Campaigns
