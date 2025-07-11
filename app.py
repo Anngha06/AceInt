@@ -1,9 +1,9 @@
-
 import streamlit as st
 import requests
 import pandas as pd
 from datetime import datetime
 import pytz
+import os 
 
 # Constants
 API_ENDPOINT = "https://sheetdb.io/api/v1/t7v2r5fwzk0zt"
@@ -35,7 +35,7 @@ def login():
             st.session_state.username = user
             st.session_state.role = USERS[user]["role"]
             st.success(f"Welcome, {user}!")
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Invalid credentials")
 
@@ -43,7 +43,7 @@ def logout():
     st.session_state.authenticated = False
     st.session_state.username = ""
     st.session_state.role = ""
-    st.experimental_rerun()
+    st.rerun()
 
 @st.cache_data
 def load_data(sheet):
@@ -82,6 +82,7 @@ def render_task_tab():
 def render_institutions():
     st.subheader("🏫 Institutions")
     data = load_data("institutions")
+    data = data.rename(columns={"name": "Name", "type": "Type", "tier": "Tier", "state": "State", "officer": "Officer", "contact": "Contact", "notes": "Notes"})
     if st.session_state.role in ["Editor", "Admin"]:
         with st.form("Add Institution"):
             name = st.text_input("Name")
@@ -102,11 +103,17 @@ def render_institutions():
         st.download_button("📁 Export CSV", data.to_csv(index=False), "institutions.csv")
         st.dataframe(data)
 
+
 def render_edtech():
     st.subheader("💻 EdTech Platforms")
     data = load_data("edtech_platforms")
     if not data.empty:
+        data = data.rename(columns={
+            "name": "Name", "website": "Website", "primary_email": "Primary Email",
+            "phone": "Phone", "alt_emails": "Alternate Emails", "notes": "Notes"
+        })
         st.dataframe(data)
+
 
 def render_bugs_updates():
     st.subheader("🐞 Bugs & Updates")
@@ -114,18 +121,20 @@ def render_bugs_updates():
     if st.session_state.role in ["Editor", "Admin"]:
         with st.form("Log Bug/Update"):
             title = st.text_input("Title")
-            bug_type = st.selectbox("Type", ["Bug", "Feature", "Improvement"])
-            status = st.selectbox("Status", ["Open", "In Progress", "Closed"])
             desc = st.text_area("Description")
+            bug_type = st.selectbox("Type", ["Bug", "Feature", "Improvement"])
+            screenshot = st.text_input("Screenshot Link (optional)")
+            status = st.selectbox("Status", ["Open", "In Progress", "Closed"])
             if st.form_submit_button("Submit"):
                 timestamp = datetime.now(pytz.timezone(TIMEZONE)).strftime("%Y-%m-%d %H:%M:%S")
                 save_data("bugs", {
-                    "title": title, "type": bug_type,
-                    "status": status, "desc": desc,
-                    "timestamp": timestamp
+                    "title": title, "description": desc, "type": bug_type,
+                    "screenshot": screenshot, "status": status, "timestamp": timestamp
                 })
                 st.success("Entry submitted.")
+                st.rerun()
     if not data.empty:
+        data = data.rename(columns={"title": "Title", "description": "Description", "type": "Type", "screenshot": "Screenshot", "status": "Status", "timestamp": "Timestamp"})
         st.dataframe(data)
 
 def render_messages():
@@ -142,39 +151,67 @@ def render_messages():
     if not data.empty:
         st.dataframe(data)
 
+
 def render_ideas():
     st.subheader("💡 Ideas")
     data = load_data("ideas")
+    if st.session_state.role in ["Editor", "Admin"]:
+        with st.form("Submit Idea"):
+            idea = st.text_input("Idea")
+            notes = st.text_area("Notes")
+            file = st.file_uploader("Supporting Document (Optional)")
+            file_link = f"https://example.com/{file.name}" if file else ""
+            if st.form_submit_button("Submit"):
+                save_data("ideas", {"idea": idea, "notes": notes, "file": file_link})
+                st.success("Idea submitted.")
+                st.rerun()
     if not data.empty:
-        for _, row in data.iterrows():
-            with st.expander(f"{row.get('type', 'Idea')}: {row.get('idea', '')}"):
-                st.write(row.to_dict())
+        data = data.rename(columns={"idea": "Idea", "notes": "Notes", "file": "Supporting Document"})
+        st.dataframe(data)
+
 
 def render_campaigns():
     st.subheader("📆 Campaigns")
     data = load_data("campaigns")
     if not data.empty:
+        data = data.rename(columns={"title": "Title", "platform": "Platform", "start_date": "Start Date", "duration": "Duration", "notes": "Notes"})
         st.dataframe(data)
+
 
 def render_interns():
     st.subheader("👥 Interns")
     data = load_data("interns")
     if not data.empty:
+        data = data.rename(columns={"name": "Name", "college": "College", "reason": "Reason", "task": "Task", "resume_uploaded": "Resume Uploaded"})
         st.dataframe(data)
+
 
 def render_work_distribution():
     st.subheader("🛠️ Work Distribution")
     data = load_data("work")
     if st.session_state.role in ["Editor", "Admin"]:
         with st.form("Assign Task"):
-            task = st.text_input("Task Name")
-            prio = st.selectbox("Priority", ["High", "Medium", "Low"])
-            assignee = st.text_input("Assignee")
-            status = st.selectbox("Status", ["⏳ Pending", "✅ Done"])
+            task = st.text_input("Task")
+            assignee = st.text_input("Assigned To")
+            completed = st.selectbox("Completed", ["✅", "⏳"])
+            assign_date = st.date_input("Assigned Date")
+            completion_date = st.date_input("Date of Completion")
+            last_access = datetime.now(pytz.timezone(TIMEZONE)).strftime("%Y-%m-%d %H:%M:%S")
             if st.form_submit_button("Assign"):
-                save_data("work", {"task": task, "priority": prio, "assignee": assignee, "status": status})
+                save_data("work", {
+                    "task": task, "assigned_to": assignee, "completed": completed,
+                    "assigned_date": str(assign_date),
+                    "completion_date": str(completion_date),
+                    "last_access": st.session_state.username + " on " + last_access
+                })
                 st.success("Task assigned.")
+                st.rerun()
     if not data.empty:
+        data = data.rename(columns={
+            "task": "Task", "assigned_to": "Assigned To", "completed": "Completed",
+            "assigned_date": "Assigned Date", "completion_date": "Date of Completion",
+            "last_access": "Last Access"
+        })
         st.dataframe(data)
 
 def render_meeting_notes():
@@ -195,12 +232,34 @@ def render_meeting_notes():
     if not data.empty:
         st.dataframe(data)
 
+
 def render_library():
     st.subheader("📚 Resource Library")
     data = load_data("resources")
+
+    if st.session_state.username in ["Anngha", "Shruti"]:
+        with st.form("Add Resource"):
+            name = st.text_input("Resource Name")
+            type_ = st.text_input("Type")
+            link = st.text_input("Link")
+            tags = st.text_input("Tags (comma-separated)")
+            if st.form_submit_button("Add"):
+                save_data("resources", {"name": name, "type": type_, "link": link, "tags": tags})
+                st.success("Resource added.")
+                st.rerun()
+
     if not data.empty:
-        for _, row in data.iterrows():
-            st.markdown(f"**{row.get('name', '')}** - [{row.get('link', '')}]({row.get('link', '')})")
+        for idx, row in data.iterrows():
+            st.markdown(f"### 📄 {row.get('name', '')}")
+            st.markdown(f"- Type: **{row.get('type', '')}**")
+            st.markdown(f"- [Open Resource]({row.get('link', '')})")
+            st.markdown(f"- Tags: `{row.get('tags', '')}`")
+            if st.session_state.username in ["Anngha", "Shruti"]:
+                if st.button(f"🗑 Delete {row.get('name', '')}", key=f"del_{idx}"):
+                    # Delete using SheetDB if unique field is available
+                    requests.delete(f"{API_ENDPOINT}/name/{row.get('name', '')}?sheet=resources")
+                    st.success("Deleted successfully.")
+                    st.rerun()
 
 def render_help():
     st.info("""
@@ -227,6 +286,35 @@ def main():
             "Meeting Notes", "Resource Library", "Help"
         ])
         st.write("⏱ Last Updated:", datetime.now(pytz.timezone(TIMEZONE)).strftime("%Y-%m-%d %H:%M:%S"))
+
+        
+        st.sidebar.markdown("### 🔍 View Tab Data")
+        view_choice = st.sidebar.selectbox("Select Tab to View", [
+            "None", "Ongoing Tasks", "Institutions", "EdTech Platforms",
+            "Bugs & Updates", "Messages", "Ideas", "Campaigns",
+            "Interns", "Work Distribution", "Meeting Notes", "Resource Library"
+        ])
+
+        if view_choice != "None":
+            st.markdown(f"## 👁️ Viewing: {view_choice}")
+            view_map = {
+                "Ongoing Tasks": "ongoing_tasks",
+                "Institutions": "institutions",
+                "EdTech Platforms": "edtech_platforms",
+                "Bugs & Updates": "bugs",
+                "Messages": "messages",
+                "Ideas": "ideas",
+                "Campaigns": "campaigns",
+                "Interns": "interns",
+                "Work Distribution": "work",
+                "Meeting Notes": "meetings",
+                "Resource Library": "resources"
+            }
+            df = load_data(view_map[view_choice])
+            if not df.empty:
+                st.dataframe(df)
+            else:
+                st.warning("No data found.")
 
         if tab == "Ongoing Tasks": render_task_tab()
         elif tab == "Institutions": render_institutions()
