@@ -4,7 +4,7 @@ from datetime import datetime
 import pytz
 from PIL import Image
 import pandas as pd
-
+import os 
 # ---------------- CONFIG ----------------
 SHEETDB_URLS = {
     "ongoing_tasks": "https://sheetdb.io/api/v1/t7v2r5fwzk0zt?sheet=ongoing_tasks",
