@@ -1,127 +1,43 @@
 import streamlit as st
 import requests
+import pandas as pd
 from datetime import datetime
 import pytz
-from PIL import Image
-import pandas as pd
-import os 
-# ---------------- CONFIG ----------------
-SHEETDB_URLS = {
-    "ongoing_tasks": "https://sheetdb.io/api/v1/t7v2r5fwzk0zt?sheet=ongoing_tasks",
-    "institutions": "https://sheetdb.io/api/v1/t7v2r5fwzk0zt?sheet=institutions",
-    "edtech_platforms": "https://sheetdb.io/api/v1/t7v2r5fwzk0zt?sheet=edtech",
-    "bugs_updates": "https://sheetdb.io/api/v1/t7v2r5fwzk0zt?sheet=bugs",
-    "messages": "https://sheetdb.io/api/v1/t7v2r5fwzk0zt?sheet=messages",
-    "ideas": "https://sheetdb.io/api/v1/t7v2r5fwzk0zt?sheet=ideas",
-    "campaigns": "https://sheetdb.io/api/v1/t7v2r5fwzk0zt?sheet=campaigns",
-    "interns": "https://sheetdb.io/api/v1/t7v2r5fwzk0zt?sheet=interns",
-    "work_distribution": "https://sheetdb.io/api/v1/t7v2r5fwzk0zt?sheet=work_distribution",
-    "last_access": "https://sheetdb.io/api/v1/t7v2r5fwzk0zt?sheet=last_access"
-}
+import os
 
-USER_DATA = {
-    "Anngha": {"password": "Q6D", "role": "editor"},
-    "Shruti": {"password": "Q6D", "role": "editor"},
-    "Laxman Sir": {"password": "222", "role": "laxman"},
-}
+# --- Configuration ---
+SHEETDB_API = "https://sheetdb.io/api/v1/t7v2r5fwzk0zt"
+GOOGLE_SHEET_LINK = "https://docs.google.com/spreadsheets/d/1Feq9Tp44cPXFeNtdpMHgjTTwsWP-p7dAgYv4tMhc1k4/edit#gid=0"
 
-# ---------------- HELPERS ----------------
-def load_sheetdb_json(tab_key):
-    url = SHEETDB_URLS[tab_key]
-    try:
-        res = requests.get(url)
-        if res.status_code == 200:
-            return res.json()
-    except:
-        pass
-    return []
+# --- User Login ---
+username = st.sidebar.text_input("Enter your username")
+is_laxman = username.lower() == "laxman"
+is_shruti = username.lower() == "shruti"
+is_anngha = username.lower() == "anngha"
+is_editor = False  # all tabs are view only except for special permissions
 
-def save_to_sheetdb(tab_key, data):
-    url = SHEETDB_URLS[tab_key]
-    try:
-        requests.put(url, json={"data": data})
-        return True
-    except:
-        return False
+# --- Helper functions ---
+def load_sheetdb_json(sheet_name):
+    res = requests.get(f"{SHEETDB_API}/search?sheet={sheet_name}")
+    return res.json() if res.status_code == 200 else []
 
-def log_access(user):
-    now = datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M:%S")
-    save_to_sheetdb("last_access", [{"user": user, "time": now}])
+def save_to_sheetdb(sheet_name, data):
+    requests.delete(f"{SHEETDB_API}?sheet={sheet_name}")
+    requests.post(f"{SHEETDB_API}?sheet={sheet_name}", json={"data": data})
 
-def display_last_access():
-    data = load_sheetdb_json("last_access")
-    if data:
-        latest = data[-1]
-        st.sidebar.markdown(f"🕒 Last Access: `{latest['user']}` at `{latest['time']}`")
-
-ALL_STATES = [
-    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat",
-    "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh",
-    "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab",
-    "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh",
-    "Uttarakhand", "West Bengal"
-]
-TIERS = ["Tier 1", "Tier 2", "Tier 3"]
-TYPES = ["Government", "Private"]
-
-# ---------------- LOGIN ----------------
-st.set_page_config(page_title="AceInt Dashboard", layout="wide")
-
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-
-if not st.session_state.authenticated:
-    st.title("🔐 AceInt Dashboard Login")
-    username = st.text_input("Name")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        if username in USER_DATA and USER_DATA[username]["password"] == password:
-            st.session_state.authenticated = True
-            st.session_state.username = username
-            st.session_state.role = USER_DATA[username]["role"]
-            log_access(username)
-            st.rerun()
-        elif password == "1111":
-            st.session_state.authenticated = True
-            st.session_state.username = username
-            st.session_state.role = "viewer"
-            log_access(username)
-            st.rerun()
-        else:
-            st.error("Invalid credentials")
-    st.stop()
-
-if st.sidebar.button("🚪 Logout"):
-    st.session_state.authenticated = False
-    st.rerun()
-
-username = st.session_state.username
-role = st.session_state.role
-is_editor = role == "editor"
-is_laxman = role == "laxman"
-is_viewer = role == "viewer"
-
-if os.path.exists("logo.png"):
-    st.sidebar.image(Image.open("logo.png"), width=120)
-
-india_time = datetime.now(pytz.timezone("Asia/Kolkata")).strftime("%I:%M:%S %p")
-st.markdown(f"<div style='position:fixed; top:10px; right:10px; font-size:20px;'>🕒 {india_time}</div>", unsafe_allow_html=True)
-
-display_last_access()
-st.title(f"📊 Welcome, {username}")
-
-# ---------------- TABS ----------------
+# --- Tabs ---
 tabs = st.tabs([
-    "Ongoing Tasks", "Institutions", "EdTech Platforms", "Bugs Updates",
-    "Messages", "Ideas", "Campaigns", "Interns", "Work Distribution"
+    "🛠️ Ongoing Tasks", "🏫 Institutions", "💻 EdTech Platforms",
+    "🐞 Bugs", "💬 Messages", "💡 Ideas",
+    "📣 Campaigns", "👩‍💻 Interns", "✅ Work Distribution"
 ])
 
-# TAB: Ongoing Tasks
+# ---------------- TAB 0: Ongoing Tasks ------------------
 with tabs[0]:
     data = load_sheetdb_json("ongoing_tasks")
     st.write("### 🛠️ Ongoing Tasks")
 
-    if is_editor:
+    if is_laxman:
         with st.form("add_task"):
             task_title = st.text_input("🔧 Task Title")
             description = st.text_area("📋 Task Description")
@@ -156,11 +72,10 @@ with tabs[0]:
         st.write(f"⭐ **Priority**: {item.get('priority', '')}")
         st.write(f"🕒 **Created At**: {item.get('created_at', '')}")
 
-        if is_editor and st.button("🗑️ Delete", key=f"del_task_{i}"):
+        if username.lower() == item.get("assigned_to", "").lower() and st.button("🗑️ Delete", key=f"del_task_{i}"):
             data.pop(i)
             save_to_sheetdb("ongoing_tasks", data)
             st.rerun()
-
 # TAB 1 - Institutions
 with tabs[1]:
     data = load_sheetdb_json("institutions")
