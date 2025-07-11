@@ -3,7 +3,6 @@ import requests
 import pandas as pd
 from datetime import datetime
 import pytz
-import os 
 
 # Constants
 API_ENDPOINT = "https://sheetdb.io/api/v1/t7v2r5fwzk0zt"
@@ -214,24 +213,27 @@ def render_work_distribution():
         })
         st.dataframe(data)
 
+
 def render_meeting_notes():
     st.subheader("📝 Meeting Notes")
     data = load_data("meetings")
     if st.session_state.role in ["Editor", "Admin"]:
         with st.form("Add Notes"):
             date = st.date_input("Date")
-            attendees = st.text_input("Attendees")
-            discussion = st.text_area("Discussion Points")
-            actions = st.text_area("Action Items")
+            with_ = st.text_input("Meeting with")
+            agenda = st.text_area("Agenda")
+            notes = st.text_area("Points to be noted")
             if st.form_submit_button("Save"):
                 save_data("meetings", {
-                    "date": str(date), "attendees": attendees,
-                    "discussion": discussion, "actions": actions
+                    "date": str(date), "meeting_with": with_, "agenda": agenda, "points": notes
                 })
                 st.success("Notes added.")
+                st.rerun()
     if not data.empty:
+        data = data.rename(columns={
+            "date": "Date", "meeting_with": "Meeting With", "agenda": "Agenda", "points": "Points to be noted"
+        })
         st.dataframe(data)
-
 
 def render_library():
     st.subheader("📚 Resource Library")
@@ -275,27 +277,57 @@ def main():
     if not st.session_state.authenticated:
         login()
     else:
-        st.sidebar.title("AceInt Ops Dashboard")
-        st.sidebar.markdown(f"**User:** {st.session_state.username}")
-        if st.sidebar.button("Logout"):
+        st.sidebar.image("logo.png", width=160)
+    st.sidebar.title("AceInt Ops Dashboard")
+    st.sidebar.markdown(f"**User:** {st.session_state.username}")
+    if st.sidebar.button("Logout"):
             logout()
 
-        tab = st.sidebar.selectbox("Navigate", [
+    tab = st.sidebar.selectbox("Navigate", [
             "Ongoing Tasks", "Institutions", "EdTech Platforms", "Bugs & Updates",
             "Messages", "Ideas", "Campaigns", "Interns", "Work Distribution",
             "Meeting Notes", "Resource Library", "Help"
         ])
-        st.write("⏱ Last Updated:", datetime.now(pytz.timezone(TIMEZONE)).strftime("%Y-%m-%d %H:%M:%S"))
-
         
-        st.sidebar.markdown("### 🔍 View Tab Data")
-        view_choice = st.sidebar.selectbox("Select Tab to View", [
+    st.sidebar.markdown("### 🔍 View Tab Data")
+    view_choice = st.sidebar.selectbox("Select Tab to View", [
+            "None", "Ongoing Tasks", "Institutions", "EdTech Platforms",
+            "Bugs & Updates", "Messages", "Ideas", "Campaigns",
+            "Interns", "Work Distribution", "Meeting Notes", "Resource Library"
+        ])
+    refresh_view = st.sidebar.button("🔄 Refresh View Data")
+
+    if view_choice != "None":
+            st.markdown(f"## 👁️ Viewing: {view_choice}")
+            view_map = {
+                "Ongoing Tasks": "ongoing_tasks",
+                "Institutions": "institutions",
+                "EdTech Platforms": "edtech_platforms",
+                "Bugs & Updates": "bugs",
+                "Messages": "messages",
+                "Ideas": "ideas",
+                "Campaigns": "campaigns",
+                "Interns": "interns",
+                "Work Distribution": "work",
+                "Meeting Notes": "meetings",
+                "Resource Library": "resources"
+            }
+            df = load_data(view_map[view_choice]) if refresh_view or True else pd.DataFrame()
+            if not df.empty:
+                st.dataframe(df)
+            else:
+                st.warning("No data found.")
+
+    st.write("⏱ Last Updated:")
+        
+    st.sidebar.markdown("### 🔍 View Tab Data")
+    view_choice = st.sidebar.selectbox("Select Tab to View", [
             "None", "Ongoing Tasks", "Institutions", "EdTech Platforms",
             "Bugs & Updates", "Messages", "Ideas", "Campaigns",
             "Interns", "Work Distribution", "Meeting Notes", "Resource Library"
         ])
 
-        if view_choice != "None":
+    if view_choice != "None":
             st.markdown(f"## 👁️ Viewing: {view_choice}")
             view_map = {
                 "Ongoing Tasks": "ongoing_tasks",
@@ -316,19 +348,18 @@ def main():
             else:
                 st.warning("No data found.")
 
-        if tab == "Ongoing Tasks": render_task_tab()
-        elif tab == "Institutions": render_institutions()
-        elif tab == "EdTech Platforms": render_edtech()
-        elif tab == "Bugs & Updates": render_bugs_updates()
-        elif tab == "Messages": render_messages()
-        elif tab == "Ideas": render_ideas()
-        elif tab == "Campaigns": render_campaigns()
-        elif tab == "Interns": render_interns()
-        elif tab == "Work Distribution": render_work_distribution()
-        elif tab == "Meeting Notes": render_meeting_notes()
-        elif tab == "Resource Library": render_library()
-        elif tab == "Help": render_help()
+    if tab == "Ongoing Tasks": render_task_tab()
+    elif tab == "Institutions": render_institutions()
+    elif tab == "EdTech Platforms": render_edtech()
+    elif tab == "Bugs & Updates": render_bugs_updates()
+    elif tab == "Messages": render_messages()
+    elif tab == "Ideas": render_ideas()
+    elif tab == "Campaigns": render_campaigns()
+    elif tab == "Interns": render_interns()
+    elif tab == "Work Distribution": render_work_distribution()
+    elif tab == "Meeting Notes": render_meeting_notes()
+    elif tab == "Resource Library": render_library()
+    elif tab == "Help": render_help()
 
 if __name__ == "__main__":
     main()
-
